@@ -152,6 +152,8 @@ export default function HomePage() {
   const [genPhase,    setGenPhase]    = useState(null)
   // 计时器 ref，用于跨 await 清理
   const genTimerRef = useRef(null)
+  const phase2bTimerRef = useRef(null)  // Phase 2b 单步延迟
+  const ttsReadyRef = useRef(false)     // TTS 已完成标记
 
   // ── 定制剧本选择状态 ─────────────────────────────────────
   // TODO: 接入后端后，selectedCharId / selectedSceneId 可持久化到用户偏好
@@ -565,12 +567,14 @@ export default function HomePage() {
 
     // 清理残留计时器
     if (genTimerRef.current) clearInterval(genTimerRef.current)
+    if (phase2bTimerRef.current) clearTimeout(phase2bTimerRef.current)
+    ttsReadyRef.current = false
 
-    // ── Phase 1：等待 LLM，每 1s 涨 20%，上限 45% ───────
+    // ── Phase 1：等待 LLM，每 1s 涨 10%，上限 28% ───────
     genTimerRef.current = setInterval(() => {
       setGenProgress(p => {
-        if (p >= 45) { clearInterval(genTimerRef.current); return p }
-        return p + 20
+        if (p >= 28) { clearInterval(genTimerRef.current); return p }
+        return p + 10
       })
     }, 1000)
 
@@ -580,24 +584,43 @@ export default function HomePage() {
       character = result.character
     } catch (err) {
       clearInterval(genTimerRef.current)
+      if (phase2bTimerRef.current) clearTimeout(phase2bTimerRef.current)
       setIsGenerating(false)
       setGenPhase(null)
       alert(`✨ 生成失败：${err.message}`)
       return
     }
 
-    // LLM 完成 → 跳到至少 50%（防止 timer 函数式更新竞态导致回退）
+    // LLM 完成 → 跳到至少 30%
     clearInterval(genTimerRef.current)
-    setGenProgress(prev => Math.max(prev, 50))
+    setGenProgress(prev => Math.max(prev, 30))
     setGenPhase('audio')
 
-    // ── Phase 2：等待 TTS，每 0.6s 涨 10%，上限 88% ─────
+    // ── Phase 2a：30→90，每 1.8s 涨 10% ─────────────────
     genTimerRef.current = setInterval(() => {
       setGenProgress(p => {
-        if (p >= 88) { clearInterval(genTimerRef.current); return p }
-        return p + 10
+        if (p >= 90) return p
+        const next = Math.min(p + 10, 90)
+        if (next >= 90) {
+          clearInterval(genTimerRef.current)
+          genTimerRef.current = null
+          // 到达 90% 后，out-of-band 决定下一步
+          setTimeout(() => {
+            if (ttsReadyRef.current) {
+              // TTS 已完成 → 直接跳 100%
+              setGenProgress(100)
+              setGenPhase('done')
+            } else {
+              // Phase 2b：2.2s 后涨到 95%，然后停着等 TTS
+              phase2bTimerRef.current = setTimeout(() => {
+                setGenProgress(prev => Math.max(prev, 95))
+              }, 2200)
+            }
+          }, 0)
+        }
+        return next
       })
-    }, 600)
+    }, 1800)
 
     let audioBase64 = null
     try {
@@ -607,8 +630,8 @@ export default function HomePage() {
       console.warn('TTS 失败，降级无音频:', err.message)
     }
 
-    // TTS 完成 → 构建卡片数据，跳到 100%，等用户点"现在进入"
-    clearInterval(genTimerRef.current)
+    // TTS 完成 → 标记 ready，构建卡片，根据当前进度决定是否立即跳 100%
+    ttsReadyRef.current = true
 
     const ts = Date.now()
     const witchChar  = CHARACTERS.find(c => c.id === 'witch')
@@ -648,8 +671,13 @@ export default function HomePage() {
       },
     ])
 
-    setGenProgress(100)
-    setGenPhase('done')
+    // Phase 2a timer 已停（null）→ 进度已 ≥90%，立即跳 100%
+    // Phase 2a 仍在运行 → 它到 90% 时会看到 ttsReadyRef=true，自动跳 100%
+    if (genTimerRef.current === null) {
+      clearTimeout(phase2bTimerRef.current)
+      setGenProgress(100)
+      setGenPhase('done')
+    }
     // isGenerating 保持 true，等用户点"现在进入"按钮后再 false
   }, [customPrompt])
 
@@ -747,6 +775,7 @@ export default function HomePage() {
       if (typingTimerRef.current) clearInterval(typingTimerRef.current)
       if (heartsTimerRef.current) clearTimeout(heartsTimerRef.current)
       if (genTimerRef.current)    clearInterval(genTimerRef.current)
+      if (phase2bTimerRef.current) clearTimeout(phase2bTimerRef.current)
     }
   }, [])
 
