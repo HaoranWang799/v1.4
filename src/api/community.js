@@ -83,7 +83,12 @@ export async function fetchCommunityPosts(options = {}) {
 
     // 后端返回 { ok: true, data: { posts, tab, page, hasMore, total, _provider, ... } }
     if (response.ok && response.data) {
-      return normalizeCommunityResponse(response.data, tab, page)
+      const normalized = normalizeCommunityResponse(response.data, tab, page)
+      console.log('🧭 [Community API] 使用后端结果', {
+        provider: normalized.provider || normalized.source,
+        fallback: normalized.source === 'mock',
+      })
+      return normalized
     } else if (response.error) {
       console.error('❌ [Community API] 请求失败:', response.error.message)
       throw new Error(response.error.message || '请求失败')
@@ -94,8 +99,13 @@ export async function fetchCommunityPosts(options = {}) {
     console.error('❌ [Community API] 错误:', error.message)
 
     // Mock fallback - 返回本地数据模拟结果
-    console.log('⚠️ [Community API] 降级到 mock')
-    return getMockPosts(tab, page, limit)
+    const mockResult = getMockPosts(tab, page, limit)
+    console.log('⚠️ [Community API] 降级到 mock', {
+      provider: mockResult.source,
+      fallback: true,
+      reason: error.message,
+    })
+    return mockResult
   }
 }
 

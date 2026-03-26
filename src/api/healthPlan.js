@@ -104,10 +104,20 @@ export async function fetchHealthPlan(payload = {}) {
       throw new Error(response?.error?.message || '健康计划接口返回无效')
     }
 
-    return normalizeServerPlan(responseData)
+    const normalized = normalizeServerPlan(responseData)
+    console.log('💪 [Health API] 使用后端结果', {
+      provider: normalized.provider,
+      fallback: normalized.fallback,
+    })
+    return normalized
   } catch (error) {
-    console.warn('❌ fetchHealthPlan 失败，使用本地 fallback:', error.message)
-    return buildLocalFallbackPlan(error.message)
+    const fallbackResult = buildLocalFallbackPlan(error.message)
+    console.warn('❌ fetchHealthPlan 失败，使用本地 fallback:', {
+      reason: error.message,
+      provider: fallbackResult.provider,
+      fallback: fallbackResult.fallback,
+    })
+    return fallbackResult
   }
 }
 

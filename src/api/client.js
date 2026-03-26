@@ -8,15 +8,14 @@
  *   • 作为所有请求的唯一入口
  */
 
+import { buildApiUrl, getApiRuntimeInfo } from './baseUrl'
 import { getStoredGrokApiKey } from './grokKey'
-
-const browserBaseUrl = typeof window !== 'undefined'
-  ? String(import.meta.env?.VITE_API_BASE_URL || '').trim().replace(/\/$/, '')
-  : ''
 
 function isStaticOnlyHost() {
   if (typeof window === 'undefined') return false
-  if (browserBaseUrl) return false
+
+  const { isUsingEnvBaseUrl } = getApiRuntimeInfo()
+  if (isUsingEnvBaseUrl) return false
 
   const host = window.location.hostname.toLowerCase()
   return (
@@ -29,9 +28,32 @@ function isStaticOnlyHost() {
 
 // 配置常量
 const CONFIG = {
-  BASE_URL: browserBaseUrl || (typeof window !== 'undefined' ? '' : 'http://localhost:3100'),
   TIMEOUT: 15000,
   RETRY_COUNT: 2,
+}
+
+function createApiError(message, extras = {}) {
+  const error = new Error(message)
+  Object.assign(error, extras)
+  return error
+}
+
+function logRequestStart(method, path, requestUrl) {
+  const runtime = getApiRuntimeInfo()
+  console.log(`🚀 [API] ${method} ${path}`, {
+    requestUrl,
+    usingEnvBaseUrl: runtime.isUsingEnvBaseUrl,
+    configuredBaseUrl: runtime.configuredBaseUrl || '(relative /api)',
+    mode: runtime.mode,
+  })
+}
+
+function extractProviderInfo(responseData) {
+  const data = responseData?.data || responseData || {}
+  return {
+    provider: data?.provider || data?._provider || data?.source || null,
+    fallback: Boolean(data?.fallback ?? data?._fallback ?? false),
+  }
 }
 
 /**
@@ -57,9 +79,20 @@ export async function request(path, options = {}) {
     fallback,
   } = options
 
+  const requestUrl = buildApiUrl(path, query)
+
+  logRequestStart(method, path, requestUrl)
+
   if (isStaticOnlyHost() && path.startsWith('/api/')) {
-    const error = new Error('当前静态站点未配置真实后端 API。请先部署 server，再在前端设置 VITE_API_BASE_URL=https://你的后端域名')
-    error.status = 0
+    const error = createApiError(
+      '当前静态站点未配置真实后端 API。请先部署 server，再在前端设置 VITE_API_BASE_URL=https://your-s-her-11-production.up.railway.app',
+      {
+        status: 0,
+        code: 'API_BASE_URL_MISSING',
+        requestUrl,
+        usingEnvBaseUrl: false,
+      }
+    )
 
     if (fallback) {
       return fallback(error)
@@ -67,17 +100,6 @@ export async function request(path, options = {}) {
 
     throw error
   }
-
-  // 构建完整 URL
-  const url = new URL(`${CONFIG.BASE_URL}${path}`, typeof window !== 'undefined' ? window.location.origin : undefined)
-
-  if (query && typeof query === 'object') {
-    Object.entries(query).forEach(([key, value]) => {
-      if (value === undefined || value === null || value === '') return
-      url.searchParams.set(key, String(value))
-    })
-  }
-
   // 准备请求头
   const defaultHeaders = {
     'Content-Type': 'application/json',
@@ -102,7 +124,7 @@ export async function request(path, options = {}) {
 
   try {
     // 创建带超时的 Promise
-    const fetchPromise = fetch(url.toString(), fetchOptions)
+    const fetchPromise = fetch(requestUrl, fetchOptions)
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(
         () => reject(new Error(`Request timeout (${timeout}ms)`)),
@@ -126,9 +148,12 @@ export async function request(path, options = {}) {
         errorData?.message ||
         `HTTP ${response.status}`
 
-      const error = new Error(backendMessage)
-      error.status = response.status
-      error.data = errorData
+      const error = createApiError(backendMessage, {
+        status: response.status,
+        data: errorData,
+        requestUrl,
+        usingEnvBaseUrl: getApiRuntimeInfo().isUsingEnvBaseUrl,
+      })
       throw error
     }
 
@@ -141,7 +166,15 @@ export async function request(path, options = {}) {
     }
 
     // 日志
-    console.log(`✅ [API] ${method} ${path}`, { response: responseData })
+    const providerInfo = extractProviderInfo(responseData)
+
+    console.log(`✅ [API] ${method} ${path}`, {
+      requestUrl,
+      usingEnvBaseUrl: getApiRuntimeInfo().isUsingEnvBaseUrl,
+      provider: providerInfo.provider,
+      fallback: providerInfo.fallback,
+      response: responseData,
+    })
 
     return responseData
   } catch (error) {
@@ -149,6 +182,8 @@ export async function request(path, options = {}) {
     console.error(`❌ [API] ${method} ${path}`, {
       error: error.message,
       status: error.status,
+      requestUrl,
+      usingEnvBaseUrl: getApiRuntimeInfo().isUsingEnvBaseUrl,
       retryCount,
     })
 

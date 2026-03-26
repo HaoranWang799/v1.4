@@ -69,15 +69,29 @@ npm run dev
 
 `https://your-s-her-api-production.up.railway.app`
 
-此时前端构建变量必须设置为：
+此时前端生产环境变量必须设置为：
 
-`VITE_API_BASE_URL=https://your-s-her-api-production.up.railway.app`
+`VITE_API_BASE_URL=https://your-s-her-11-production.up.railway.app`
 
 后端的 `CORS_ALLOW_ORIGINS` 必须包含你的 GitHub Pages 域名：
 
 `CORS_ALLOW_ORIGINS=https://haoranwang799.github.io`
 
 注意：如果后端只允许主域名，而前端运行在 GitHub Pages 子路径下，`origin` 仍然是 `https://haoranwang799.github.io`，不是完整路径。
+
+### 当前仓库默认生产配置
+
+当前仓库已经内置生产环境 API 基地址：
+
+`VITE_API_BASE_URL=https://your-s-her-11-production.up.railway.app`
+
+因此重新构建前端后，生产环境请求会直接发往：
+
+- `https://your-s-her-11-production.up.railway.app/api/lover/message`
+- `https://your-s-her-11-production.up.railway.app/api/health/plan`
+- `https://your-s-her-11-production.up.railway.app/api/community/posts`
+
+本地开发仍然保留相对路径 `/api/...`，由 Vite 代理转发。
 
 ## 页面流程
 

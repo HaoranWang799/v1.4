@@ -72,10 +72,20 @@ export async function fetchVirtualLoverMessage(options = {}) {
       throw new Error(response?.error?.message || '虚拟恋人接口返回无效')
     }
 
-    return normalizeServerLoverPayload(response.data)
+    const normalized = normalizeServerLoverPayload(response.data)
+    console.log('💬 [VirtualLover API] 使用后端结果', {
+      provider: normalized.provider,
+      fallback: normalized.fallback,
+    })
+    return normalized
   } catch (error) {
-    console.warn('❌ fetchVirtualLoverMessage 失败，使用本地 fallback:', error.message)
-    return createLocalFallbackMessage(error.message)
+    const fallbackResult = createLocalFallbackMessage(error.message)
+    console.warn('❌ fetchVirtualLoverMessage 失败，使用本地 fallback:', {
+      reason: error.message,
+      provider: fallbackResult.provider,
+      fallback: fallbackResult.fallback,
+    })
+    return fallbackResult
   }
 }
 
@@ -95,7 +105,7 @@ export async function clearVirtualLoverMemory() {
     return response
   } catch (error) {
     // Mock 成功响应
-    console.warn('❌ clearVirtualLoverMemory 失败，使用 mock 成功:', error.message)
+    console.warn('❌ clearVirtualLoverMemory 失败，使用 mock 成功:', { reason: error.message })
     return {
       success: true,
       message: '记忆已清空（本地模式）',
