@@ -25,6 +25,59 @@ import { SCRIPTS, SCRIPT_DESCRIPTIONS, BG_VIDEO_IDS } from '../data/scripts'
 import { PRESETS, TOTAL_SECONDS, pick, formatTime, generateHearts } from '../data/interactData'
 import { generateScript as generateScriptApi } from '../api/scripts'
 
+// ── 生成等待区：轮播暧昧文案 ─────────────────────────────────
+const TEASER_LINES = [
+  '她已经感受到你了…',
+  '神经网络正在为你物色…',
+  '你的渴望，已被 AI 捕获…',
+  '连接中，心跳请保持…',
+  '正在为你解锁专属频率…',
+  '她悄悄靠近，等你开口…',
+  '专属回应，即将送达…',
+  '别急，她正在换衣服…',
+]
+
+function GeneratingTeaser() {
+  const [idx, setIdx] = useState(0)
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    const cycle = setInterval(() => {
+      setVisible(false)
+      setTimeout(() => {
+        setIdx(i => (i + 1) % TEASER_LINES.length)
+        setVisible(true)
+      }, 400)
+    }, 2000)
+    return () => clearInterval(cycle)
+  }, [])
+
+  return (
+    <section className="animate-fadeUp">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-sm">✨</span>
+        <h2 className="text-sm font-semibold text-[rgba(245,240,242,0.85)] tracking-wide">为你定制</h2>
+      </div>
+      <div
+        className="rounded-2xl flex items-center justify-center py-16"
+        style={{ background: 'linear-gradient(135deg, rgba(179,128,255,0.10), rgba(255,154,203,0.08))' }}
+      >
+        <p
+          className="text-[15px] font-medium tracking-wide text-center px-6 transition-opacity duration-300"
+          style={{
+            opacity: visible ? 1 : 0,
+            background: 'linear-gradient(135deg, #FF9ACB, #B380FF)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          {TEASER_LINES[idx]}
+        </p>
+      </div>
+    </section>
+  )
+}
+
 export default function HomePage() {
 
   // ── 视图状态（'select' | 'interact'）──────────────────────
@@ -595,8 +648,10 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* ── ② 为你定制（生成后出现，两个并排定制卡片供选择）── */}
-            {/* TODO: 替换为 AI 接口返回的真实角色数据 */}
+            {/* ── ② 生成等待区：轮播暧昧文案 ── */}
+            {isGenerating && <GeneratingTeaser />}
+
+            {/* ── ③ 为你定制（生成后出现，两个并排定制卡片供选择）── */}
             {generatedScripts.length > 0 && (
               <section className="animate-fadeUp">
                 <div className="flex items-center gap-2 mb-3">
