@@ -1,47 +1,51 @@
 /**
- * 场景配置 - 集中管理
- * 影响背景色调、环境描述、互动氛围
+ * 场景数据 — 统一数据源
+ * HomePage 互动选择 & 场景氛围共用
+ * TODO: 替换为 /api/scenes 的真实数据
  */
-
-export const scenes = [
+export const SCENES = [
   {
     id: 'office',
     name: '办公室',
-    backgroundStyle: {
-      gradient: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      accentColor: '#e94560',
-      warmAccent: '#ff6b6b',
+    emoji: '🏢',
+    overlayRgb: '255, 180, 80',
+    ambiance: {
+      idle: '格子间的灯光昏黄，键盘声渐渐停了…',
+      warm: '加班的气息里，暗流在涌动…',
+      hot:  '夜深了，窗外的城市还在喧嚣，这里只剩彼此…',
     },
-    ambientDescription: '夜深了，办公室里只剩下你们。空调的嗡鸣、键盘的余温，还有她指尖敲击桌面的声音。',
   },
   {
     id: 'dorm',
     name: '宿舍',
-    backgroundStyle: {
-      gradient: 'linear-gradient(135deg, #2d1b4e 0%, #1a0a2e 50%, #0d0221 100%)',
-      accentColor: '#a855f7',
-      warmAccent: '#c084fc',
+    emoji: '🛏️',
+    overlayRgb: '200, 80, 200',
+    ambiance: {
+      idle: '风扇嗡嗡作响，空气里弥漫着熟悉的气息…',
+      warm: '被子的温度越来越高，呼吸也乱了…',
+      hot:  '只有你们两个人，时间好像停住了…',
     },
-    ambientDescription: '熄灯后的宿舍，月光从窗帘缝隙挤进来。她的床铺传来轻微翻身的声响，还有若有若无的香气。',
   },
   {
     id: 'park',
     name: '公园',
-    backgroundStyle: {
-      gradient: 'linear-gradient(135deg, #0d2137 0%, #134e5c 50%, #1a5f4a 100%)',
-      accentColor: '#2dd4bf',
-      warmAccent: '#5eead4',
+    emoji: '🌿',
+    overlayRgb: '100, 190, 100',
+    ambiance: {
+      idle: '落叶轻飘，夕阳把一切都染得暖橙色…',
+      warm: '风带走了你的话，留下的只有心跳…',
+      hot:  '天色暗下来了，你们还没有离开…',
     },
-    ambientDescription: '夜风吹过树梢，长椅上只有你们两人。远处的路灯昏黄，她的发丝被风轻轻撩起。',
   },
   {
     id: 'balcony',
     name: '夜晚阳台',
-    backgroundStyle: {
-      gradient: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)',
-      accentColor: '#818cf8',
-      warmAccent: '#a78bfa',
+    emoji: '🌃',
+    overlayRgb: '80, 120, 255',
+    ambiance: {
+      idle: '夜风微凉，月光洒在你的脸上…',
+      warm: '星星都在看着你们，什么都藏不住…',
+      hot:  '城市的噪音消失了，只听得到彼此的呼吸…',
     },
-    ambientDescription: '城市灯火在脚下铺开，晚风带着一丝凉意。她靠在栏杆上，侧脸被月光镀了一层银边。',
   },
 ]

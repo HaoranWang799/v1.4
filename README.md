@@ -22,6 +22,24 @@ npm install
 npm run dev
 ```
 
+## Railway 部署配置
+
+当前项目支持前后端同域或分离部署。若前端与后端分开部署（常见于 Railway），请配置以下环境变量：
+
+1. 前端服务变量：
+`VITE_API_BASE_URL=https://你的后端域名`
+
+2. 后端服务变量：
+`GROK_API_KEY=你的xAI密钥`
+
+`PORT=3102`
+
+`CORS_ALLOW_ORIGINS=https://你的前端域名`
+
+说明：
+- `CORS_ALLOW_ORIGINS` 支持逗号分隔多个来源，示例：`https://a.app,https://b.app`
+- 若前端未设置 `VITE_API_BASE_URL`，默认使用相对路径 `/api`（本地 Vite 代理场景）
+
 ## 页面流程
 
 1. **欢迎页** → 2. **角色选择** → 3. **场景选择** → 4. **互动页**

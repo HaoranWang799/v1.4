@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:3100'
 
 export default defineConfig({
   root: __dirname,
@@ -11,7 +12,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3102',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },

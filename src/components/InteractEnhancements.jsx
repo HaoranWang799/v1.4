@@ -3,9 +3,7 @@
  *
  * 包含（均为插入式增强，不破坏现有 HomePage 逻辑）：
  *   - HeaderStatusBar      顶部设备状态栏（连接状态 + 电量 + 模式信息）
- *   - StageNoticeBar       当前阶段提示条（阶段名 + 状态说明）
  *   - SceneTimeline        场景节奏时间轴（节点 + 进度滑杆）
- *   - ModeSwitchTabs       AI智能 / 手动调节 切换按钮
  *   - RhythmModeGrid       节奏模式选择 4 宫格（AI模式下展示）
  *   - AiParameterCards     AI模式下强度 + 频率双卡片
  *   - DeviceStatusFooter   底部设备状态小卡片
@@ -132,41 +130,6 @@ export function HeaderStatusBar({
   )
 }
 
-// ─── 2. StageNoticeBar ───────────────────────────────────────────────
-/**
- * 当前阶段提示条
- * props:
- *   - stageIndex: number  当前阶段 index（由父组件根据 progressValue 计算）
- *   - hint: string        右侧状态说明文字（mock 默认值）
- * TODO: hint 后续由音频引擎 / TTS 状态动态注入
- */
-export function StageNoticeBar({ stageIndex = 0, hint = '' }) {
-  const stage = STAGE_NODES[stageIndex] || STAGE_NODES[0]
-  return (
-    <div
-      className="relative z-10 flex items-center justify-between px-3.5 py-1.5 rounded-full"
-      style={{
-        background: 'rgba(15,8,18,0.72)',
-        border: '1px solid rgba(255,154,203,0.2)',
-      }}
-    >
-      {/* 左侧 · 阶段名 */}
-      <div className="flex items-center gap-1.5">
-        <span
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ background: '#FF9ACB', boxShadow: '0 0 4px rgba(255,154,203,0.7)' }}
-        />
-        <span className="text-[11px] font-semibold text-[rgba(245,240,242,0.88)]">
-          {stage.label}
-        </span>
-      </div>
-
-      {/* 右侧 · 状态说明（弱化，仅作辅助信息） */}
-      {hint ? <span className="text-[8px] text-[rgba(245,240,242,0.25)]">{hint}</span> : null}
-    </div>
-  )
-}
-
 // ─── 3. SceneTimeline ────────────────────────────────────────────────
 /**
  * 场景节奏时间轴（节点 + 总进度滑杆）
@@ -216,50 +179,6 @@ export function SceneTimeline({ stageIndex = 0, onStageChange }) {
           </button>
         )
       })}
-    </div>
-  )
-}
-
-// ─── 4. ModeSwitchTabs ───────────────────────────────────────────────
-/**
- * AI智能 / 手动调节 切换分段按钮
- * props:
- *   - mode: 'ai' | 'manual'   当前激活模式
- *   - onChange: fn             切换回调（更新父组件 state）
- */
-export function ModeSwitchTabs({ mode, onChange }) {
-  return (
-    <div
-      className="relative z-10 flex rounded-2xl p-1 gap-1"
-      style={{ background: 'rgba(20,10,20,0.8)', border: '1px solid rgba(255,255,255,0.08)' }}
-    >
-      {/* AI智能 */}
-      <button
-        onClick={() => onChange('ai')}
-        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all duration-200 active:scale-[0.98]"
-        style={
-          mode === 'ai'
-            ? { background: 'linear-gradient(135deg, #FF9ACB, #B380FF)', color: '#fff', boxShadow: '0 2px 12px rgba(255,154,203,0.35)' }
-            : { color: 'rgba(245,240,242,0.45)', background: 'transparent' }
-        }
-      >
-        <span className="text-sm">✦</span>
-        AI 智能
-      </button>
-
-      {/* 手动调节 */}
-      <button
-        onClick={() => onChange('manual')}
-        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-semibold transition-all duration-200 active:scale-[0.98]"
-        style={
-          mode === 'manual'
-            ? { background: 'linear-gradient(135deg, #FF9ACB, #B380FF)', color: '#fff', boxShadow: '0 2px 12px rgba(255,154,203,0.35)' }
-            : { color: 'rgba(245,240,242,0.45)', background: 'transparent' }
-        }
-      >
-        <span className="text-sm">⊞</span>
-        手动调节
-      </button>
     </div>
   )
 }

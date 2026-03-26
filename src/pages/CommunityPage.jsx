@@ -21,15 +21,10 @@
 import { useState } from 'react'
 import { Heart, MessageCircle, Bookmark, Plus, Trash2 } from 'lucide-react'
 import { useVirtualLover } from '../hooks/useVirtualLover'
+import useCommunity from '../hooks/useCommunity'
 
-// ═══════════════════════════════════════════════════════════
-//  静态数据（未来替换为 API）
-// ═══════════════════════════════════════════════════════════
-
-const TABS = ['体验分享', '攻略教程', '创作展示']
-
-// TODO: 替换为 /api/community/posts?tab={tab} 的真实请求
-const POSTS_DATA = {
+// 遗留本地数据，当前页面已改为 useCommunity 实时数据流。
+const LEGACY_POSTS_V2 = {
   '体验分享': [
     // ── 女性视角 ──────────────────────────────────────────
     {
@@ -426,7 +421,7 @@ const MOOD_STYLES = {
 }
 
 function AiLoverCard({ aiMemoryDeleted, onDeleteMemory }) {
-  const { clearMemory, fadeIn, loading, message, metaText, mood, refreshMessage } = useVirtualLover()
+  const { clearMemory, fadeIn, fallback, loading, metaText, mood, provider, refreshMessage, text, timestamp } = useVirtualLover()
 
   const moodStyle = MOOD_STYLES[mood] || MOOD_STYLES['温柔']
 
@@ -442,7 +437,6 @@ function AiLoverCard({ aiMemoryDeleted, onDeleteMemory }) {
         </div>
         <div className="flex-1">
           <p className="text-xs font-semibold text-[rgba(245,240,242,0.9)]">你的虚拟恋人</p>
-          <p className="text-[10px] text-[rgba(245,240,242,0.4)]">{metaText}</p>
         </div>
         {/* 呼吸点 */}
         <span
@@ -468,11 +462,10 @@ function AiLoverCard({ aiMemoryDeleted, onDeleteMemory }) {
               transition: 'opacity 0.4s ease, transform 0.4s ease',
             }}
           >
-            {loading && !message ? (
+            {loading && !text ? (
               <span className="inline-block text-[rgba(245,240,242,0.4)] animate-pulse">思念加载中…</span>
-            ) : message}
+            ) : text}
           </div>
-
           {/* 底部操作 */}
           <div className="flex items-center justify-between">
             <button
@@ -503,27 +496,28 @@ function AiLoverCard({ aiMemoryDeleted, onDeleteMemory }) {
 // ═══════════════════════════════════════════════════════════
 
 export default function CommunityPage() {
-  // ── Tab 状态 ──────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState('体验分享')
+  const TABS = ['体验分享', '攻略教程', '创作展示']
+
+  // ── 社区数据 Hook ────────────────────────────────────────
+  const { posts, currentTab, loading, hasMore, error, switchTab, refresh } = useCommunity()
 
   // ── 点赞状态（每个帖子独立）────────────────────────────
   // TODO: 替换为后端持久化点赞状态（/api/community/like）
   const [likesMap, setLikesMap] = useState(() => {
     const map = {}
-    Object.values(POSTS_DATA).flat().forEach((post) => {
-      map[post.id] = { liked: false, count: post.likes }
+    posts.forEach((post) => {
+      map[post.id] = { liked: false, count: post.likes || 0 }
     })
     return map
   })
 
   // ── AI 记忆状态 ──────────────────────────────────────────
-  // TODO: 替换为真实硬件记忆模块数据（蓝牙传感器分析）
   const [aiMemoryDeleted, setAiMemoryDeleted] = useState(false)
 
   // ── 点赞切换 ─────────────────────────────────────────────
   const toggleLike = (postId) => {
     setLikesMap((prev) => {
-      const cur = prev[postId]
+      const cur = prev[postId] || { liked: false, count: 0 }
       return {
         ...prev,
         [postId]: {
@@ -534,21 +528,18 @@ export default function CommunityPage() {
     })
   }
 
-  // ── 当前 Tab 的帖子 ──────────────────────────────────────
-  const currentPosts = POSTS_DATA[activeTab] ?? []
-
   return (
-    <div className="relative px-4 pt-4 pb-24 space-y-4">
+    <div className="relative px-4 pt-4 pb-24 space-y-4 page-enter">
 
       {/* ═══ 顶部 Tab ════════════════════════════════════════ */}
-      <div className="flex gap-1 bg-[rgba(255,255,255,0.04)] rounded-2xl p-1">
+      <div className="flex gap-1 bg-[rgba(255,255,255,0.04)] rounded-2xl p-1 page-section page-delay-1">
         {TABS.map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => switchTab(tab)}
             className={`
-              flex-1 py-2 rounded-xl text-[11px] font-medium transition-all duration-200
-              ${activeTab === tab
+              flex-1 py-2 rounded-xl text-[11px] font-medium transition-colors duration-150
+              ${currentTab === tab
                 ? 'bg-[rgba(255,154,203,0.15)] text-[#FF9ACB]'
                 : 'text-[rgba(245,240,242,0.45)]'
               }
@@ -560,27 +551,60 @@ export default function CommunityPage() {
       </div>
 
       {/* ═══ AI 主动关怀卡片（接入 Grok AI）═══════════════════ */}
-      <AiLoverCard aiMemoryDeleted={aiMemoryDeleted} onDeleteMemory={() => {
-        if (window.confirm('确定删除今晚的记忆吗？此操作不可撤销。')) {
-          setAiMemoryDeleted(true)
-          alert('🗑️ 记忆已删除')
-        }
-      }} />
-
-      {/* ═══ 帖子列表 ════════════════════════════════════════ */}
-      <div key={activeTab} className="space-y-3 animate-fadeUp">
-        {currentPosts.map((post) => (
-          <PostCard
-            key={post.id}
-            post={post}
-            likeState={likesMap[post.id]}
-            onLike={() => toggleLike(post.id)}
-          />
-        ))}
+      <div className="page-section page-delay-2">
+        <AiLoverCard aiMemoryDeleted={aiMemoryDeleted} onDeleteMemory={() => {
+          if (window.confirm('确定删除今晚的记忆吗？此操作不可撤销。')) {
+            setAiMemoryDeleted(true)
+            alert('🗑️ 记忆已删除')
+          }
+        }} />
       </div>
 
+      {/* ═══ 加载状态 ════════════════════════════════════════ */}
+      {loading && posts.length === 0 && (
+        <div className="flex justify-center items-center py-12 page-section page-delay-3">
+          <div className="text-center">
+            <p className="text-[12px] text-[rgba(245,240,242,0.4)] animate-pulse">加载社区帖子中…</p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ 错误显示 ════════════════════════════════════════ */}
+      {error && (
+        <div className="rounded-2xl p-4 bg-[rgba(255,100,100,0.1)] border border-[rgba(255,100,100,0.2)] page-section page-delay-3">
+          <p className="text-[12px] text-[rgba(255,100,100,0.8)]">⚠️ {error}</p>
+          <button
+            onClick={() => refresh()}
+            className="mt-2 text-[11px] text-[#FF9ACB] hover:opacity-80"
+          >
+            🔄 重试
+          </button>
+        </div>
+      )}
+
+      {/* ═══ 帖子列表 ════════════════════════════════════════ */}
+      {posts.length > 0 && (
+        <div className={`space-y-3 transition-opacity duration-150 page-section page-delay-3 ${loading ? 'opacity-72' : 'opacity-100'}`}>
+          {posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              likeState={likesMap[post.id] || { liked: false, count: 0 }}
+              onLike={() => toggleLike(post.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ═══ 空状态 ══════════════════════════════════════════ */}
+      {!loading && posts.length === 0 && !error && (
+        <div className="flex justify-center items-center py-12 page-section page-delay-3">
+          <p className="text-[12px] text-[rgba(245,240,242,0.4)]">暂无帖子，敬请期待</p>
+        </div>
+      )}
+
       {/* ═══ 隐私提示 ════════════════════════════════════════ */}
-      <div className="pt-2 pb-4 text-center">
+      <div className="pt-2 pb-4 text-center page-section page-delay-4">
         <p className="text-[10px] text-[rgba(245,240,242,0.25)] leading-relaxed">
           所有内容匿名发布，本地加密。可随时清除记忆。
         </p>

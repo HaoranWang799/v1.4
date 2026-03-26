@@ -13,4 +13,10 @@ function getRandomFallbackMessage() {
   return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)]
 }
 
-export { FALLBACK_MESSAGES, getRandomFallbackMessage }
+function getFallbackMessageExcluding(excludedText = '') {
+  const candidates = FALLBACK_MESSAGES.filter((item) => item.text !== excludedText)
+  if (candidates.length === 0) return getRandomFallbackMessage()
+  return candidates[Math.floor(Math.random() * candidates.length)]
+}
+
+export { FALLBACK_MESSAGES, getFallbackMessageExcluding, getRandomFallbackMessage }

@@ -12,7 +12,8 @@
  * TODO: 添加设备蓝牙连接状态到顶部栏右侧
  * TODO: 接入用户账户 API 实现真实余额同步
  */
-import { Outlet, NavLink } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useRef } from 'react'
+import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import { Home, ShoppingBag, MessageCircle, BarChart2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
@@ -24,11 +25,66 @@ const NAV_ITEMS = [
 ]
 
 const PHONE_W = 'max-w-[430px]'
+const ROUTE_SCROLL_STORAGE_KEY = 'app_route_scroll_positions'
+
+function readStoredScrollPositions() {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw = window.sessionStorage.getItem(ROUTE_SCROLL_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeStoredScrollPositions(positions) {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.sessionStorage.setItem(ROUTE_SCROLL_STORAGE_KEY, JSON.stringify(positions))
+  } catch {
+    // ignore storage failures
+  }
+}
 
 export default function Layout() {
   // ── 从全局 AppContext 读取货币与会员状态 ─────────────────
   // TODO: AppContext 内部已标注真实 API 接入位置
   const { coins, setCoins, diamonds, setDiamonds, userLevel, setUserLevel } = useApp()
+  const location = useLocation()
+  const mainRef = useRef(null)
+  const scrollPositionsRef = useRef(readStoredScrollPositions())
+
+  useEffect(() => {
+    const mainEl = mainRef.current
+    if (!mainEl) return undefined
+
+    const handleScroll = () => {
+      scrollPositionsRef.current = {
+        ...scrollPositionsRef.current,
+        [location.pathname]: mainEl.scrollTop,
+      }
+      writeStoredScrollPositions(scrollPositionsRef.current)
+    }
+
+    handleScroll()
+    mainEl.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      mainEl.removeEventListener('scroll', handleScroll)
+      handleScroll()
+    }
+  }, [location.pathname])
+
+  useLayoutEffect(() => {
+    const mainEl = mainRef.current
+    if (!mainEl) return
+
+    const nextTop = scrollPositionsRef.current[location.pathname] ?? 0
+    mainEl.scrollTop = nextTop
+  }, [location.pathname])
 
   return (
     <div className="min-h-screen bg-[#050305] flex justify-center">
@@ -58,7 +114,7 @@ export default function Layout() {
         </header>
 
         {/* ── 内容区 ── */}
-        <main className="flex-1 overflow-y-auto pt-14 pb-16">
+        <main ref={mainRef} className="flex-1 overflow-y-auto pt-14 pb-16">
           {/*
            * 将货币与会员状态下发给所有子页面
            * 商城 / 充值页面通过 useOutletContext() 接收

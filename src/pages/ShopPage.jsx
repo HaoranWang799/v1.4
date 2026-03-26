@@ -647,50 +647,91 @@ function SectionTitle({ icon, title, sub }) {
 /** 横向滚动行（移动端滑动 + 桌面端鼠标拖拽） */
 function HorizontalScrollRow({ children, className = '', style }) {
   const rowRef = useRef(null)
-  const dragRef = useRef({ active: false, startX: 0, startLeft: 0, moved: false })
+  const dragRef = useRef({
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startLeft: 0,
+    moved: false,
+    axis: null,
+  })
 
-  const onMouseDown = (e) => {
-    if (e.button !== 0) return
+  const onPointerDown = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
     const el = rowRef.current
     if (!el) return
     dragRef.current = {
-      active: true,
-      startX: e.clientX,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
       startLeft: el.scrollLeft,
       moved: false,
+      axis: null,
     }
+    el.setPointerCapture?.(event.pointerId)
   }
 
-  const onMouseMove = (e) => {
+  const onPointerMove = (event) => {
     const el = rowRef.current
-    if (!el || !dragRef.current.active) return
-    const dx = e.clientX - dragRef.current.startX
-    if (Math.abs(dx) > 3) dragRef.current.moved = true
+    if (!el || dragRef.current.pointerId !== event.pointerId) return
+
+    const dx = event.clientX - dragRef.current.startX
+    const dy = event.clientY - dragRef.current.startY
+
+    if (!dragRef.current.axis) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+      dragRef.current.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+    }
+
+    if (dragRef.current.axis !== 'x') return
+    if (Math.abs(dx) > 4) dragRef.current.moved = true
+
     el.scrollLeft = dragRef.current.startLeft - dx
-    e.preventDefault()
+    event.preventDefault()
   }
 
-  const stopDragging = () => {
-    dragRef.current.active = false
+  const stopDragging = (event) => {
+    const el = rowRef.current
+    if (dragRef.current.pointerId == null) return
+    if (event && dragRef.current.pointerId !== event.pointerId) return
+    el?.releasePointerCapture?.(dragRef.current.pointerId)
+    window.setTimeout(() => {
+      dragRef.current.moved = false
+    }, 0)
+    dragRef.current.pointerId = null
+    dragRef.current.axis = null
   }
 
-  const onClickCapture = (e) => {
+  const onClickCapture = (event) => {
     if (!dragRef.current.moved) return
-    e.preventDefault()
-    e.stopPropagation()
-    dragRef.current.moved = false
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  const onWheel = (event) => {
+    const el = rowRef.current
+    if (!el) return
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+    el.scrollLeft += event.deltaY
+    event.preventDefault()
   }
 
   return (
     <div
       ref={rowRef}
       className={`flex gap-3 overflow-x-auto scrollbar-hide pb-1 select-none cursor-grab active:cursor-grabbing ${className}`}
-      style={style}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={stopDragging}
-      onMouseLeave={stopDragging}
+      style={{
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        overscrollBehaviorX: 'contain',
+        ...style,
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={stopDragging}
+      onPointerCancel={stopDragging}
       onClickCapture={onClickCapture}
+      onWheel={onWheel}
     >
       {children}
     </div>
@@ -774,11 +815,11 @@ export default function ShopPage() {
   }
 
   return (
-    <div className="px-4 pt-4 pb-8 space-y-6">
+    <div className="px-4 pt-4 pb-8 space-y-6 page-enter">
 
       {/* ═══ 顶部：货币余额 + 充值按钮 ════════════════════════ */}
       {/* 已移除会员等级文字，充值/会员入口统一由充值按钮（👑）进入 */}
-      <section className="flex items-center gap-2">
+      <section className="flex items-center gap-2 page-section page-delay-1">
         <div className="flex-1" />
 
         {/* 货币余额 */}
@@ -797,7 +838,7 @@ export default function ShopPage() {
       </section>
 
       {/* ═══ 智能推荐 ════════════════════════════════════════ */}
-      <section>
+      <section className="page-section page-delay-1">
         <SectionTitle icon="🎯" title="智能推荐为你" sub="根据你的偏好" />
         {/* TODO: 替换推荐列表为真实个性化算法 API */}
         <HorizontalScrollRow>
@@ -814,7 +855,7 @@ export default function ShopPage() {
 
       {/* ═══ 官方更新专区 ════════════════════════════════════ */}
       {/* TODO: 替换为 /api/shop/official 的真实数据 */}
-      <section>
+      <section className="page-section page-delay-2">
         <SectionTitle icon="🏅" title="官方更新" sub="品质保障" />
         <HorizontalScrollRow>
           {OFFICIAL_UPDATES.map((item) => (
@@ -835,7 +876,7 @@ export default function ShopPage() {
       {/* TODO: 替换为真实激励视频 SDK（AdMob / Unity Ads / AppLovin） */}
       <button
         onClick={handleWatchAd}
-        className="w-full rounded-2xl p-3.5 flex items-center gap-3 transition-opacity hover:opacity-90"
+        className="w-full rounded-2xl p-3.5 flex items-center gap-3 transition-opacity hover:opacity-90 page-section page-delay-2"
         style={{ background: 'linear-gradient(135deg, #1a2240 0%, #251840 100%)', border: '1px solid rgba(179,128,255,0.2)' }}
       >
         <div className="w-10 h-10 rounded-xl bg-[rgba(179,128,255,0.2)] flex items-center justify-center flex-shrink-0">
@@ -850,7 +891,7 @@ export default function ShopPage() {
 
       {/* ═══ 免费专区 ════════════════════════════════════════ */}
       {/* TODO: 替换为 /api/shop/free 的真实数据 */}
-      <section>
+      <section className="page-section page-delay-2">
         <SectionTitle icon="🆓" title="免费专区" sub="永久免费" />
         <HorizontalScrollRow>
           {FREE_SECTION_CARDS.map((item) => (
@@ -868,14 +909,13 @@ export default function ShopPage() {
       </section>
 
       {/* ═══ 免费内容专区（礼包 + 每日限免 + 基础库）════════ */}
-      <section>
+      <section className="page-section page-delay-3">
         <SectionTitle icon="🎁" title="免费内容专区" />
 
         {/* 新用户礼包 */}
         <p className="text-[10px] text-[rgba(245,240,242,0.4)] mb-2 tracking-wider">新用户礼包</p>
         <HorizontalScrollRow
-          className="pb-2 mb-4 px-1 snap-x snap-mandatory touch-pan-x"
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          className="pb-2 mb-4 px-1"
         >
           {FREE_PACKS.map((item) => (
             <FreePackCard
@@ -961,7 +1001,7 @@ export default function ShopPage() {
 
       {/* ═══ 用户二创专区 ════════════════════════════════════ */}
       {/* TODO: 替换为 /api/shop/user-creations 的真实数据 */}
-      <section>
+      <section className="page-section page-delay-3">
         <SectionTitle icon="✏️" title="用户二创" sub="社区精选" />
         <HorizontalScrollRow>
           {USER_CREATIONS.map((item) => (
@@ -981,7 +1021,7 @@ export default function ShopPage() {
 
       {/* ═══ 热门榜单 ════════════════════════════════════════ */}
       {/* TODO: 替换为 /api/shop/hot?sortBy=downloads 的真实数据 */}
-      <section>
+      <section className="page-section page-delay-4">
         <SectionTitle icon="🔥" title="热门榜单" sub="下载最多" />
         <HorizontalScrollRow>
           {HOT_LIST.map((item) => (
@@ -1001,7 +1041,7 @@ export default function ShopPage() {
 
       {/* ═══ 彩虹专区（LGBTQ+）══════════════════════════════ */}
       {/* TODO: 替换为 /api/shop/rainbow 的真实数据 */}
-      <section>
+      <section className="page-section page-delay-4">
         <SectionTitle icon="🌈" title="彩虹专区" sub="多元 · 包容 · 平等" />
         <HorizontalScrollRow>
           {RAINBOW_LIST.map((item) => (
@@ -1020,7 +1060,7 @@ export default function ShopPage() {
 
       {/* ═══ 独家定制专区（多模态）══════════════════════════ */}
       {/* TODO: 替换为 /api/shop/exclusive?multimodal=true 的真实数据 */}
-      <section>
+      <section className="page-section page-delay-4">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-base">👑</span>
           <span className="text-sm font-semibold text-[rgba(245,240,242,0.85)]">独家定制</span>

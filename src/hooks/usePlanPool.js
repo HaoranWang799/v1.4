@@ -1,63 +1,107 @@
 /**
- * usePlanPool.js — 训练计划池 hook
+ * usePlanPool.js — 训练计划池 Hook
  *
- * 策略：
- *  1. 点击时立即展示一条固定模板（无等待，动画 1700ms）
- *  2. 同时在后台请求 AI 接口
- *  3. AI 返回后自动升级当前方案；若 AI 失败则保留固定模板
- *  4. 每次点击循环切换到下一条固定模板（10 条轮询）
+ * 职责：
+ *   • 加载 AI 生成的训练计划
+ *   • 保持思考态动画
+ *   • 仅消费统一结构的真实 API / fallback 结果
  */
-import { useState, useRef } from 'react'
-import { seedPlans } from '../data/seedPlans'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { fetchHealthPlan } from '../api/healthPlan'
 
-const SWITCH_DURATION = 1700 // ms，与 ThinkingState 动画时长对齐
+const SWITCH_DURATION = 1700 // 思考动画时长
+const HEALTH_PLAN_SESSION_KEY = 'health_plan_session_state'
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function readStoredPlanState() {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const raw = window.sessionStorage.getItem(HEALTH_PLAN_SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeStoredPlanState(state) {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.sessionStorage.setItem(HEALTH_PLAN_SESSION_KEY, JSON.stringify(state))
+  } catch {
+    // ignore storage failures
+  }
+}
 
 export function usePlanPool(buildPayloadFn) {
-  const [currentPlan, setCurrentPlan] = useState(null)
-  const [planVisible, setPlanVisible] = useState(false)
+  const [currentPlan, setCurrentPlan] = useState(() => readStoredPlanState()?.currentPlan || null)
+  const [planVisible, setPlanVisible] = useState(() => Boolean(readStoredPlanState()?.planVisible && readStoredPlanState()?.currentPlan))
   const [isSwitching, setIsSwitching] = useState(false)
-  const [isFallbackMode, setIsFallbackMode] = useState(false)
+  const [isFallbackMode, setIsFallbackMode] = useState(() => Boolean(readStoredPlanState()?.isFallbackMode))
   const [isCurrentPlanUpgrading, setIsCurrentPlanUpgrading] = useState(false)
+  const [lastPlanMeta, setLastPlanMeta] = useState(() => readStoredPlanState()?.lastPlanMeta || null)
 
-  // 固定模板轮询索引
-  const seedIdxRef = useRef(0)
+  const requestIdRef = useRef(0)
 
-  async function handleGeneratePlan() {
+  useEffect(() => {
+    writeStoredPlanState({
+      currentPlan,
+      planVisible,
+      isFallbackMode,
+      lastPlanMeta,
+    })
+  }, [currentPlan, planVisible, isFallbackMode, lastPlanMeta])
+
+  const handleGeneratePlan = useCallback(async () => {
     if (isSwitching) return
 
-    // 1. 取下一条固定模板，立即展示
-    const idx = seedIdxRef.current % seedPlans.length
-    seedIdxRef.current = idx + 1
-    const seedPlan = seedPlans[idx]
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
 
     setIsSwitching(true)
     setIsCurrentPlanUpgrading(true)
+    setPlanVisible(false)
+    setLastPlanMeta(null)
 
-    // 1700ms 动画结束后展示固定模板
-    setTimeout(() => {
-      setCurrentPlan(seedPlan)
-      setPlanVisible(true)
-      setIsSwitching(false)
-    }, SWITCH_DURATION)
-
-    // 2. 后台请求 AI（不阻塞 UI）
     try {
-      const payload = buildPayloadFn()
-      const data = await fetchHealthPlan(payload)
-      if (data?.plan) {
-        // AI 响应后用真实数据替换（无论动画是否结束）
-        setCurrentPlan({ ...data.plan, source: 'ai', _backendSource: data.source || 'grok' })
+      const payload = buildPayloadFn ? buildPayloadFn() : {}
+      const [response] = await Promise.all([
+        fetchHealthPlan(payload),
+        wait(SWITCH_DURATION),
+      ])
+
+      if (requestId !== requestIdRef.current) return
+
+      if (response?.summary) {
+        setCurrentPlan(response)
         setPlanVisible(true)
-        setIsFallbackMode(false)
+        setIsFallbackMode(Boolean(response.fallback))
+        setLastPlanMeta(response)
       }
-    } catch {
-      // AI 失败：保留固定模板，标记降级模式
-      setIsFallbackMode(true)
+    } catch (error) {
+      if (requestId === requestIdRef.current) {
+        setIsFallbackMode(true)
+        setLastPlanMeta({
+          provider: 'fallback',
+          fallback: true,
+          error: error.message,
+        })
+      }
+      console.error('Failed to generate health plan:', error)
     } finally {
-      setIsCurrentPlanUpgrading(false)
+      if (requestId === requestIdRef.current) {
+        setIsSwitching(false)
+        setIsCurrentPlanUpgrading(false)
+      }
     }
-  }
+  }, [buildPayloadFn, isSwitching])
 
   return {
     currentPlan,
@@ -65,6 +109,7 @@ export function usePlanPool(buildPayloadFn) {
     isSwitching,
     isFallbackMode,
     isCurrentPlanUpgrading,
+    lastPlanMeta,
     handleGeneratePlan,
   }
 }

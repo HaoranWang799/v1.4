@@ -132,17 +132,27 @@ function buildFallbackHealthPlan(input) {
   }
 }
 
-export async function createHealthPlan(input) {
+export async function createHealthPlan(input, options = {}) {
+  const modelName = process.env.GROK_MODEL || 'grok-4-fast-non-reasoning'
   const fallback = buildFallbackHealthPlan(input)
 
   try {
-    const aiPlan = await generateHealthPlan(input)
+    const aiPlan = await generateHealthPlan(input, {
+      apiKeyOverride: options.apiKeyOverride,
+    })
     return {
       source: 'grok',
+      model: modelName,
+      aiError: '',
       ...sanitizePlan(aiPlan, fallback),
     }
   } catch (error) {
     console.error('[Health Plan Error]', error.message)
-    return fallback
+    return {
+      ...fallback,
+      source: 'fallback',
+      model: modelName,
+      aiError: error.message,
+    }
   }
 }

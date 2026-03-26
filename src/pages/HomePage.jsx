@@ -1,699 +1,29 @@
-/**
- * HomePage.jsx — 互动主场景 v6
+﻿/**
+ * HomePage.jsx — 互动主场景 v7 (重构版)
  *
- * 变更（v6）：
- *   • 顶部标题 "自定义你的幻想" → "✨ 生成你的专属"；生成按钮文案 → "✨ 生成"
- *   • 推荐区标题 "默认剧本" → "🌙 今夜为你推荐"
- *   • 新增 "🎨 定制你的剧本" 区域：
- *       – 角色选择行（横向滚动，单选，选中高亮）
- *       – 场景选择行（横向滚动，单选，选中高亮）
- *       – "✨ 开始互动" 按钮（角色 + 场景均已选中时激活）
- *   • CHARACTERS 新增 intro 字段（角色开场白）
- *   • SCENES 新增 name / emoji 字段
- *
- * 视图机器：
- *   'select'   → ① 生成你的专属（输入框 + AI生成）
- *                ② 你的幻想（生成后出现）
- *                ③ 今夜为你推荐（双列网格）
- *                ④ 定制你的剧本（角色选 + 场景选 + 开始按钮）
- *   'interact' → 角色头像 · 回应文案 · 温度条 · 音波 · 模式按钮 · 主/语音按钮
- *
- * TODO: 替换为真实 LLM 接口 (getAIResponse)
- * TODO: 替换为真实语音识别 STT 与 TTS 接口
- * TODO: 替换为真实蓝牙设备连接与控制 (connectToy, setVibMode)
- * TODO: 替换自定义剧本生成为真实 AI 文生角色接口
- *       (generateCharacterFromPrompt) 入参：string → 出参：ScriptObject
- * TODO: ScriptCard 的 emoji 头像区域后续替换为真实图片 <img>
+ * v7 变更：
+ *   • 数据常量提取到 src/data/ (characters, scenes, scripts, interactData)
+ *   • 子组件提取到 src/components/home/ (ScriptCards, SelectCards, InteractWidgets)
+ *   • 本文件仅保留主逻辑 + 视图编排
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Mic, Sparkles, ArrowLeft, Pause, Play } from 'lucide-react'
+import { Sparkles, Pause, Play } from 'lucide-react'
 import {
   HeaderStatusBar,
   SceneTimeline,
-  ModeSwitchTabs,
   RhythmModeGrid,
   AiParameterCards,
   DeviceStatusFooter,
   getStageIndexByProgress,
 } from '../components/InteractEnhancements'
+import { ScriptCard, GeneratedScriptCard } from '../components/home/ScriptCards'
+import { CharSelectCard, SceneSelectCard } from '../components/home/SelectCards'
+import { Waveform, HeartRain, SliderControl } from '../components/home/InteractWidgets'
+import { CHARACTERS } from '../data/characters'
+import { SCENES } from '../data/scenes'
+import { SCRIPTS, SCRIPT_DESCRIPTIONS, BG_VIDEO_IDS } from '../data/scripts'
+import { PRESETS, TOTAL_SECONDS, pick, formatTime, generateHearts } from '../data/interactData'
 
-// ═══════════════════════════════════════════════════════════
-//  角色数据
-// ═══════════════════════════════════════════════════════════
-// TODO: 替换为 /api/characters 的真实数据（含真实图片 URL）
-const CHARACTERS = [
-  {
-    id: 'boss',
-    emoji: '👩‍💼',
-    name: '冷感女上司',
-    tag: '冷艳 · 强势',
-    intro: '汇报工作？还是找借口接近我…',
-    responses: {
-      normal:   ['继续…别停。', '你倒是很大胆。', '哼，还不满足？', '动作快一点。', '别让我失望。'],
-      intimate: ['抱紧我…', '你赢了…', '叫我的名字…', '今晚…你不能走。', '我只对你这样…'],
-    },
-  },
-  {
-    id: 'junior',
-    emoji: '🌸',
-    name: '温柔学妹',
-    tag: '温柔 · 可爱',
-    intro: '学长…室友今晚不回来了~',
-    responses: {
-      normal:   ['学长好坏…', '再摸一下嘛~', '嘻嘻，痒~', '学长你真坏…', '不要不要~（小声）'],
-      intimate: ['学长…我好喜欢…', '别离开我…', '学长可以再近一点吗…', '只想和学长在一起…', '嗯…学长…'],
-    },
-  },
-  {
-    id: 'teacher',
-    emoji: '👩‍🏫',
-    name: '知性女老师',
-    tag: '知性 · 优雅',
-    intro: '留下来，今天的课还没结束。',
-    responses: {
-      normal:   ['今天想学点特别的？', '认真感受…', '放松，跟着我。', '很好，继续。', '你是个好学生。'],
-      intimate: ['你真是我的好学生…', '再深入一点…', '今晚的课程…还没结束。', '跟着感觉走…', '让老师好好教你…'],
-    },
-  },
-  {
-    id: 'neighbor',
-    emoji: '🌙',
-    name: '神秘邻居',
-    tag: '神秘 · 诱惑',
-    intro: '又没拉窗帘…是故意的吗？',
-    responses: {
-      normal:   ['你猜我在哪？', '窗帘没拉…', '想我了？', '今晚风好大…', '别被发现了。'],
-      intimate: ['只给你一个人…', '今晚别走…', '我一直在等你…', '靠近一点…', '你让我无法自拔…'],
-    },
-  },
-  // ── AI 生成角色（演示版，未来替换为真实 AI 文生角色接口数据）──
-  {
-    id: 'witch',
-    emoji: '🧙‍♀️',
-    name: '魅惑女巫',
-    tag: '神秘 · 诱惑',
-    intro: '想尝尝禁忌的魔法吗？',
-    responses: {
-      normal:   ['感受到魔法了吗…', '别逃，跑不掉的。', '今夜是你的劫…', '靠近一点…', '我的魔法专为你施…'],
-      intimate: ['你已中了我的咒…', '今晚别走…', '只给你一个人…', '叫我的名字…', '你让我无法自拔…'],
-    },
-  },
-  {
-    id: 'knight',
-    emoji: '🏇',
-    name: '狂野骑士',
-    tag: '激情 · 征服',
-    intro: '骑上我，别停…',
-    responses: {
-      normal:   ['继续…别停。', '你倒是很大胆。', '哼，还不满足？', '动作快一点。', '别让我失望。'],
-      intimate: ['抱紧我…', '你赢了…', '叫我的名字…', '今晚…你不能走。', '紧紧跟上我…'],
-    },
-  },
-]
-
-// ═══════════════════════════════════════════════════════════
-//  场景数据
-// ═══════════════════════════════════════════════════════════
-// TODO: 替换为 /api/scenes 的真实数据
-const SCENES = [
-  {
-    id: 'office',
-    name: '办公室',
-    emoji: '🏢',
-    overlayRgb: '255, 180, 80',
-    ambiance: {
-      idle: '格子间的灯光昏黄，键盘声渐渐停了…',
-      warm: '加班的气息里，暗流在涌动…',
-      hot:  '夜深了，窗外的城市还在喧嚣，这里只剩彼此…',
-    },
-  },
-  {
-    id: 'dorm',
-    name: '宿舍',
-    emoji: '🛏️',
-    overlayRgb: '200, 80, 200',
-    ambiance: {
-      idle: '风扇嗡嗡作响，空气里弥漫着熟悉的气息…',
-      warm: '被子的温度越来越高，呼吸也乱了…',
-      hot:  '只有你们两个人，时间好像停住了…',
-    },
-  },
-  {
-    id: 'park',
-    name: '公园',
-    emoji: '🌿',
-    overlayRgb: '100, 190, 100',
-    ambiance: {
-      idle: '落叶轻飘，夕阳把一切都染得暖橙色…',
-      warm: '风带走了你的话，留下的只有心跳…',
-      hot:  '天色暗下来了，你们还没有离开…',
-    },
-  },
-  {
-    id: 'balcony',
-    name: '夜晚阳台',
-    emoji: '🌃',
-    overlayRgb: '80, 120, 255',
-    ambiance: {
-      idle: '夜风微凉，月光洒在你的脸上…',
-      warm: '星星都在看着你们，什么都藏不住…',
-      hot:  '城市的噪音消失了，只听得到彼此的呼吸…',
-    },
-  },
-]
-
-// ═══════════════════════════════════════════════════════════
-//  剧本数据（双列网格，竖向卡片）
-// 卡片封面使用视频的剧本 ID（视频文件放于 public/videos/{id}.mp4）
-const CARD_VIDEO_IDS = ['boss']
-
-// 交互模式背景优先尝试视频的 charId / sceneId 列表
-// 匹配 activeScript.charId 或 activeScript.sceneId 均可触发视频背景
-const BG_VIDEO_IDS = ['boss', 'balcony', 'neighbor']
-
-// ═══════════════════════════════════════════════════════════
-// TODO: 替换为 /api/shop/scripts?featured=true 的真实数据
-const SCRIPTS = [
-  {
-    // 视频封面：/videos/boss.mp4（放置于 public/videos/）
-    id: 'boss', charId: 'boss', sceneId: 'office',
-    cover: '👩‍💼', coverImage: '', coverEmoji: '👩‍💼',
-    name: '办公室·冷感女上司',
-    tag:   '免费',
-    personalityTag: '高冷 / 御姐',
-    openingLine:    '汇报工作？还是找借口接近我…',
-    downloads: '2.3万',
-    rating:    4.8,
-    gradient:  'from-[#2a1020] to-[#1a0d18]',
-  },
-  {
-    id: 'junior', charId: 'junior', sceneId: 'dorm',
-    cover: '🌸', coverImage: '', coverEmoji: '🌸',
-    name: '宿舍·温柔学妹',
-    tag:   '免费',
-    personalityTag: '温柔 / 依赖',
-    openingLine:    '学长…室友今晚不回来了~',
-    downloads: '5.1万',
-    rating:    4.9,
-    gradient:  'from-[#0f1a2a] to-[#0a1018]',
-  },
-  {
-    id: 'teacher', charId: 'teacher', sceneId: 'park',
-    cover: '👩‍🏫', coverImage: '', coverEmoji: '👩‍🏫',
-    name: '教室·知性女老师',
-    tag:   '免费',
-    personalityTag: '知性 / 优雅',
-    openingLine:    '留下来，今天的课还没结束。',
-    downloads: '1.9万',
-    rating:    4.6,
-    gradient:  'from-[#1a1028] to-[#0f0c1a]',
-  },
-  {
-    id: 'neighbor', charId: 'neighbor', sceneId: 'balcony',
-    cover: '🌙', coverImage: '', coverEmoji: '🌙',
-    name: '阳台·神秘邻居',
-    tag:   '免费',
-    personalityTag: '神秘 / 诱惑',
-    openingLine:    '又没拉窗帘…是故意的吗？',
-    downloads: '3.2万',
-    rating:    4.7,
-    gradient:  'from-[#12102a] to-[#0c0a1e]',
-  },
-]
-
-// 自定义生成示例（演示用固定数据）
-// TODO: 接入 AI 文生角色接口后，此对象由接口返回
-const CUSTOM_SCRIPT = {
-  id: 'custom',
-  charId:  'boss',
-  sceneId: 'office',
-  cover:   '🧝‍♀️', coverImage: '', coverEmoji: '🧝‍♀️',
-  name:    '暗夜精灵·魅影',
-  tag:     'AI 生成',
-  personalityTag: '魅惑 / 神秘',
-  openingLine:    '你终于来了…我等了你好久。',
-  downloads:      'AI 生成',
-  rating:         null,
-  gradient:       'from-[#1a0a30] to-[#2a1040]',
-  customDisplayName: '暗夜精灵',
-  customTag:         '魅惑 · 神秘',
-  customIntro:       '你终于来了…我等了你好久。',
-  isCustom: true,
-}
-
-// ═══════════════════════════════════════════════════════════
-//  剧本详情长文案（剧本详情弹窗使用，按 charId 索引）
-// ═══════════════════════════════════════════════════════════
-// TODO: 替换为真实 AI 生成的剧本简介文案
-const SCRIPT_DESCRIPTIONS = {
-  boss:    '走进这间深夜的办公室，你的女上司正等着你。空气中弥漫着淡淡的香水味和权力的张力。她靠在办公桌边，眼神既冷漠又带着一丝期待。今晚，你不再是下属，而是能够征服她的唯一男人。每一步靠近，都能感受到她呼吸的急促，直到她卸下所有防备，在你怀里融化。',
-  junior:  '校园的林荫道上，学妹早已悄悄等你。她穿着松垮的校服，眼神清澈却带着狡黠。你牵起她的手，走向无人的教室。她害羞地低头，却偷偷抓紧你的衣角。从青涩的试探到热烈的回应，每一个吻都让你心跳加速。今晚，她是你的甜心，只为你绽放。',
-  teacher: '放学后的教室格外安静，女老师还没离开。她坐在讲台边，红唇轻启，说想和你聊聊。你走近，发现她今天的眼神格外炽热。书本散落，理智在欲望面前崩塌。她引导你探索未知的领域，用身体为你上最难忘的一课。',
-  neighbor:'你刚搬到新公寓，就注意到隔壁那位神秘的女邻居。她总是在深夜穿着丝绸睡衣出现在阳台，对你若有若无地微笑。一次偶然的借火，你们之间的暧昧彻底点燃。她的房间里弥漫着异国的熏香，每一寸肌肤都充满诱惑。今晚，她只为你敞开房门。',
-  witch:   '午夜的月光下，女巫在森林深处召唤你。她的眼睛像猫一样闪着光，声音带着魔法的低语。你跟随她走进魔法圈，草药和蜡烛的味道包围着你们。她告诉你，今晚要教你一个古老的咒语——关于爱与欲望的禁忌之术。',
-  knight:  '你是一名孤独的骑士，在一次任务中救下了受伤的女战士。她浑身充满野性，却在你怀里温顺下来。篝火旁，她脱下盔甲，露出紧致的肌肉和性感的伤疤。她说，只有最强者才能配得上她。今晚，你们将在帐篷里进行一场真正的较量。',
-}
-
-// ═══════════════════════════════════════════════════════════
-//  震动模式
-// ═══════════════════════════════════════════════════════════
-// TODO: 替换为真实蓝牙设备震动频率控制 (setVibMode)
-const VIB_MODES = [
-  { id: 'slow',   label: '轻柔触碰', emoji: '🌊', duration: 1.1  },
-  { id: 'medium', label: '快速撞击', emoji: '⚡', duration: 0.45 },
-  { id: 'fast',   label: '直接高潮', emoji: '🔥', duration: 0.2  },
-]
-
-// 预设模式（点击后同时设置频率/强度/紧度）
-// TODO: 接入真实蓝牙设备后，预设将直接映射到设备控制参数
-const PRESETS = [
-  { id: 'gentle',   label: '轻柔', emoji: '🌊', freq: 3, intens: 2, tight: 4 },
-  { id: 'standard', label: '标准', emoji: '⚡', freq: 5, intens: 5, tight: 5 },
-  { id: 'climax',   label: '高潮', emoji: '🔥', freq: 9, intens: 8, tight: 9 },
-]
-
-// 10 根音波条的延迟偏移（秒）
-const BAR_OFFSETS = [0, 0.08, 0.18, 0.12, 0.04, 0.16, 0.06, 0.22, 0.10, 0.02]
-
-// ═══════════════════════════════════════════════════════════
-//  工具函数
-// ═══════════════════════════════════════════════════════════
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
-
-// 进度条：演示总时长（秒），对应 12:45
-const TOTAL_SECONDS = 765
-
-// 将秒数格式化为 mm:ss
-const formatTime = (secs) => {
-  const m = Math.floor(secs / 60).toString().padStart(2, '0')
-  const s = Math.floor(secs % 60).toString().padStart(2, '0')
-  return `${m}:${s}`
-}
-
-const generateHearts = (count = 30) =>
-  Array.from({ length: count }, (_, i) => ({
-    id: i,
-    left:  `${Math.random() * 96 + 2}%`,
-    dur:   `${2.5 + Math.random() * 2}s`,
-    delay: `${Math.random() * 1.5}s`,
-    size:  `${1.2 + Math.random() * 1.2}rem`,
-  }))
-
-// ═══════════════════════════════════════════════════════════
-//  子组件
-// ═══════════════════════════════════════════════════════════
-
-/**
- * 推荐剧本卡片（双列网格，竖向布局）
- * 封面图路径规则：/images/covers/{script.id}.jpg（放置于 public/images/covers/）
- * 图片加载失败时自动回退到渐变色背景 + 大 emoji 水印占位
- */
-function ScriptCard({ script, onClick }) {
-  const isVideo = CARD_VIDEO_IDS.includes(script.id)
-  const [imgSrc, setImgSrc] = useState(`/images/covers/${script.id}.jpg`)
-
-  return (
-    <button
-      onClick={onClick}
-      className={`relative rounded-2xl overflow-hidden h-48 text-left transition-all duration-200 active:scale-[0.97] card-glow hover:brightness-110 flex flex-col bg-gradient-to-br ${script.gradient}`}
-    >
-      {/* 视频封面（文件路径：public/videos/{id}.mp4） */}
-      {isVideo && (
-        <video
-          autoPlay loop muted playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src={`/videos/${script.id}.mp4`} type="video/mp4" />
-        </video>
-      )}
-
-      {/* 普通封面图片（非视频卡片，jpg → png → emoji 链式回退） */}
-      {!isVideo && imgSrc && (
-        <img
-          src={imgSrc}
-          alt=""
-          onError={() => {
-            if (imgSrc.endsWith('.jpg')) setImgSrc(`/images/covers/${script.id}.png`)
-            else setImgSrc(null)
-          }}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
-
-      {/* 半透明黑色遮罩层（始终显示，提升文字可读性） */}
-      <div className="absolute inset-0 bg-black/40" />
-
-      {/* 无封面时（非视频 + 图片加载失败）：大 emoji 水印 */}
-      {!isVideo && !imgSrc && (
-        <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-20 pointer-events-none select-none">
-          {script.coverEmoji || '✨'}
-        </div>
-      )}
-
-      {/* 内容层 */}
-      <div className="relative z-10 p-3.5 flex flex-col justify-end h-full">
-        {/* 标签角标（右上角） */}
-        <span className="absolute top-2.5 right-2.5 text-[9px] font-bold bg-[rgba(255,154,203,0.2)] text-[#FF9ACB] rounded-full px-1.5 py-0.5">
-          {script.tag}
-        </span>
-
-        {/* 剧本名称 */}
-        <p className="text-[11px] font-semibold text-white mb-1 leading-snug pr-6">
-          {script.name}
-        </p>
-
-        {/* 性格标签 */}
-        <p className="text-[9px] text-[rgba(179,128,255,0.85)] mb-1">
-          {script.personalityTag}
-        </p>
-
-        {/* 开场白 */}
-        <p className="text-[10px] text-[rgba(245,240,242,0.65)] italic leading-relaxed mb-2 line-clamp-1">
-          "{script.openingLine}"
-        </p>
-
-        {/* 下载量 + 评分 */}
-        <div className="flex items-center gap-2 mb-2 pt-1.5 border-t border-[rgba(255,255,255,0.12)]">
-          <span className="text-[9px] text-[rgba(245,240,242,0.5)]">↓ {script.downloads}</span>
-          {script.rating && (
-            <span className="text-[9px] text-[rgba(245,240,242,0.5)]">{script.rating} ★</span>
-          )}
-        </div>
-
-        {/* 开始互动按钮 */}
-        <span className="w-full text-center btn-main rounded-xl py-1.5 text-white text-[10px] font-medium">
-          开始互动
-        </span>
-      </div>
-    </button>
-  )
-}
-
-/**
- * AI 定制剧本卡片（双列，与 ScriptCard 等高）
- * 演示版：使用固定角色数据，未来替换为真实 AI 文生角色接口返回数据
- * 差异：右上角"✨ 为你定制"玫瑰渐变徽章 + "✨ 体验定制"按钮
- */
-function GeneratedScriptCard({ script, onClick }) {
-  const [imgSrc, setImgSrc] = useState(`/images/covers/${script.id}.jpg`)
-
-  return (
-    <button
-      onClick={onClick}
-      className={`relative rounded-2xl overflow-hidden h-48 text-left transition-all duration-200 active:scale-[0.97] card-glow hover:brightness-110 flex flex-col bg-gradient-to-br ${script.gradient}`}
-    >
-      {/* 封面图片（jpg → png → emoji 链式回退） */}
-      {imgSrc && (
-        <img
-          src={imgSrc}
-          alt=""
-          onError={() => {
-            if (imgSrc.endsWith('.jpg')) setImgSrc(`/images/covers/${script.id}.png`)
-            else setImgSrc(null)
-          }}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
-
-      {/* 半透明黑色遮罩层 */}
-      <div className="absolute inset-0 bg-black/40" />
-
-      {/* 无封面时：大 emoji 水印 */}
-      {!imgSrc && (
-        <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-20 pointer-events-none select-none">
-          {script.coverEmoji || '✨'}
-        </div>
-      )}
-
-      {/* 内容层 */}
-      <div className="relative z-10 p-3.5 flex flex-col justify-end h-full">
-        {/* 定制徽章（右上角） */}
-        <span
-          className="absolute top-2.5 right-2.5 text-[9px] font-bold rounded-full px-1.5 py-0.5 text-white whitespace-nowrap"
-          style={{ background: 'linear-gradient(135deg, #FF9ACB, #B380FF)' }}
-        >
-          ✨ 为你定制
-        </span>
-
-        {/* 剧本名称 */}
-        <p className="text-[11px] font-semibold text-white mb-1 leading-snug pr-14">
-          {script.name}
-        </p>
-
-        {/* 性格标签 */}
-        <p className="text-[9px] text-[rgba(179,128,255,0.85)] mb-1">
-          {script.personalityTag}
-        </p>
-
-        {/* 开场白 */}
-        <p className="text-[10px] text-[rgba(245,240,242,0.65)] italic leading-relaxed mb-2 line-clamp-1">
-          "{script.openingLine}"
-        </p>
-
-        {/* 体验定制按钮 */}
-        <span
-          className="w-full text-center rounded-xl py-1.5 text-white text-[10px] font-bold"
-          style={{ background: 'linear-gradient(135deg, #FF9ACB, #B380FF)' }}
-        >
-          ✨ 体验定制
-        </span>
-      </div>
-    </button>
-  )
-}
-
-/**
- * AI 生成的"你的幻想"预览卡片（全宽，封面图 + 暗色蒙层）
- * 封面图路径规则：/images/covers/{script.id}.jpg
- * 图片加载失败时自动回退到渐变色背景 + 大 emoji 水印占位
- */
-function PreviewScriptCard({ script, onClick }) {
-  const [imgSrc, setImgSrc] = useState(`/images/covers/${script.id}.jpg`)
-
-  return (
-    <button
-      onClick={onClick}
-      className="relative w-full rounded-2xl overflow-hidden h-44 text-left transition-all duration-200 active:scale-[0.98] card-glow-selected hover:brightness-110 flex flex-col bg-gradient-to-br from-[#1a0a30] to-[#2a1040]"
-    >
-      {/* 封面图片（jpg → png → emoji 链式回退） */}
-      {imgSrc && (
-        <img
-          src={imgSrc}
-          alt=""
-          onError={() => {
-            if (imgSrc.endsWith('.jpg')) setImgSrc(`/images/covers/${script.id}.png`)
-            else setImgSrc(null)
-          }}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      )}
-
-      {/* 半透明黑色遮罩层 */}
-      <div className="absolute inset-0 bg-black/40" />
-
-      {/* 无封面时（图片加载失败）：大 emoji 水印 */}
-      {!imgSrc && (
-        <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-20 pointer-events-none select-none">
-          {script.coverEmoji || '✨'}
-        </div>
-      )}
-
-      {/* 内容层 */}
-      <div className="relative z-10 p-4 flex flex-col justify-end h-full gap-2">
-        {/* AI 生成标签 */}
-        <span className="absolute top-3 right-3 text-[9px] bg-[rgba(179,128,255,0.25)] text-[#B380FF] rounded-full px-1.5 py-0.5">
-          AI 生成
-        </span>
-
-        {/* 名称 + 性格标签 */}
-        <div>
-          <p className="text-sm font-semibold text-white mb-0.5">
-            {script.customDisplayName}
-          </p>
-          <p className="text-[10px] text-[rgba(179,128,255,0.8)]">{script.personalityTag}</p>
-        </div>
-
-        {/* 开场白 */}
-        <p className="text-[11px] text-[rgba(245,240,242,0.7)] italic leading-relaxed line-clamp-1">
-          "{script.customIntro}"
-        </p>
-
-        {/* 开始互动按钮 */}
-        <span className="w-full flex items-center justify-center gap-1.5 btn-main rounded-xl py-2 text-white text-[11px] font-medium">
-          <Sparkles size={11} />
-          开始互动
-        </span>
-      </div>
-    </button>
-  )
-}
-
-/**
- * 角色选择卡片（定制区横向滚动，单选）
- * TODO: 接入 /api/characters 后替换为真实数据；emoji 替换为 <img>
- */
-function CharSelectCard({ char, selected, onSelect }) {
-  return (
-    <button
-      onClick={onSelect}
-      className={`
-        relative flex-shrink-0 w-32 rounded-2xl p-3 text-left transition-all duration-200
-        active:scale-95
-        ${selected
-          ? 'card-glow-selected bg-[rgba(255,154,203,0.12)] ring-1 ring-[rgba(255,154,203,0.45)]'
-          : 'card-glow bg-[rgba(30,20,25,0.7)] hover:bg-[rgba(50,30,40,0.7)]'
-        }
-      `}
-    >
-      {/* 已选角标 */}
-      {selected && (
-        <span className="absolute top-1.5 right-1.5 text-[8px] bg-[#FF9ACB] text-[#1a0a12] rounded-full px-1.5 py-0.5 font-bold leading-none">
-          ✓ 已选
-        </span>
-      )}
-
-      {/* emoji 头像（TODO: 替换为真实图片） */}
-      <div className="text-3xl mb-1.5 select-none">{char.emoji}</div>
-
-      {/* 角色名 */}
-      <p className="text-[11px] font-semibold text-[rgba(245,240,242,0.95)] mb-0.5 pr-6 leading-tight">
-        {char.name}
-      </p>
-
-      {/* 性格标签 */}
-      <p className="text-[9px] text-[rgba(179,128,255,0.8)] mb-1.5">{char.tag}</p>
-
-      {/* 开场白 */}
-      <p className="text-[9px] text-[rgba(245,240,242,0.45)] italic leading-relaxed line-clamp-2">
-        "{char.intro}"
-      </p>
-    </button>
-  )
-}
-
-/**
- * 场景选择卡片（定制区横向滚动，单选）
- * TODO: 接入 /api/scenes 后替换为真实数据
- */
-function SceneSelectCard({ scene, selected, onSelect }) {
-  return (
-    <button
-      onClick={onSelect}
-      className={`
-        relative flex-shrink-0 w-28 rounded-2xl p-3 text-left transition-all duration-200
-        active:scale-95
-        ${selected
-          ? 'card-glow-selected bg-[rgba(179,128,255,0.15)] ring-1 ring-[rgba(179,128,255,0.45)]'
-          : 'card-glow bg-[rgba(30,20,25,0.7)] hover:bg-[rgba(50,30,40,0.7)]'
-        }
-      `}
-    >
-      {/* 已选角标 */}
-      {selected && (
-        <span className="absolute top-1.5 right-1.5 text-[8px] bg-[#B380FF] text-white rounded-full px-1.5 py-0.5 font-bold leading-none">
-          ✓ 已选
-        </span>
-      )}
-
-      {/* 场景 emoji */}
-      <div className="text-2xl mb-1.5 select-none">{scene.emoji}</div>
-
-      {/* 场景名 */}
-      <p className="text-[11px] font-semibold text-[rgba(245,240,242,0.95)] mb-1 pr-6 leading-tight">
-        {scene.name}
-      </p>
-
-      {/* 环境氛围描述 */}
-      <p className="text-[9px] text-[rgba(245,240,242,0.45)] leading-relaxed line-clamp-3">
-        {scene.ambiance.idle}
-      </p>
-    </button>
-  )
-}
-
-/** 语音波形（麦克风激活时） */
-function VoiceWave() {
-  const cls = ['animate-waveBar1','animate-waveBar2','animate-waveBar3','animate-waveBar4','animate-waveBar5']
-  return (
-    <div className="flex items-center gap-[3px] h-5">
-      {cls.map((c, i) => (
-        <div key={i} className={`w-[3px] rounded-full bg-[#FF9ACB] origin-bottom ${c}`} style={{ height: '16px' }} />
-      ))}
-    </div>
-  )
-}
-
-/** 音波进度条（10 根竖条，速度随频率滑块变化） */
-function Waveform({ freq = 5 }) {
-  // freq 1 → 1.2s，freq 10 → 0.2s
-  const dur = 1.2 - (freq - 1) * 0.111
-  return (
-    <div className="flex items-center justify-center gap-[3px] h-9 px-1">
-      {BAR_OFFSETS.map((offset, i) => {
-        const h = 30 + ((i * 13 + 7) % 40)
-        return (
-          <div
-            key={i}
-            className="rounded-full origin-center"
-            style={{
-              width: '4px',
-              height: `${h}%`,
-              animation: `waveBar ${(dur + offset * 0.1).toFixed(2)}s ease-in-out ${offset}s infinite`,
-              background: 'linear-gradient(to top, #FF9ACB, #B380FF)',
-            }}
-          />
-        )
-      })}
-    </div>
-  )
-}
-
-/** 满屏心形飘落 */
-function HeartRain({ hearts }) {
-  return (
-    <>
-      {hearts.map((h) => (
-        <span
-          key={h.id}
-          className="heart-particle select-none"
-          style={{ left: h.left, '--dur': h.dur, animationDelay: h.delay, fontSize: h.size }}
-        >
-          ❤️
-        </span>
-      ))}
-    </>
-  )
-}
-
-/**
- * 单个控制滑块（频率 / 强度 / 紧度）
- * TODO: 接入真实蓝牙设备控制接口 (setDeviceParam)
- */
-function SliderControl({ icon, label, value, onChange }) {
-  const pct = ((value - 1) / 9) * 100
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-base w-5 flex-shrink-0 select-none">{icon}</span>
-      <span className="text-[11px] font-medium text-[rgba(245,240,242,0.65)] w-8 flex-shrink-0">{label}</span>
-      <div className="flex-1">
-        <input
-          type="range"
-          min="1"
-          max="10"
-          value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          className="w-full h-1 rounded-full outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#FF9ACB] [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer"
-          style={{ background: `linear-gradient(90deg, #FF9ACB ${pct}%, rgba(255,255,255,0.12) ${pct}%)` }}
-        />
-      </div>
-      <span className="text-xs font-bold text-[#FF9ACB] w-4 text-right tabular-nums flex-shrink-0">{value}</span>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════
-//  主组件
-// ═══════════════════════════════════════════════════════════
 export default function HomePage() {
 
   // ── 视图状态（'select' | 'interact'）──────────────────────
@@ -761,6 +91,16 @@ export default function HomePage() {
   const heartsTimerRef = useRef(null)
   const autoTextCbRef  = useRef(null)
   const temperatureRef = useRef(0)
+  const dragScrollStateRef = useRef({
+    pointerId: null,
+    container: null,
+    startX: 0,
+    startY: 0,
+    startScrollLeft: 0,
+    moved: false,
+    axis: null,
+  })
+  const suppressHorizontalClickRef = useRef(false)
   // TODO: 替换 /audio/demo.mp3 为真实场景配乐（后续可按 activeScript.id 动态切换音频）
   const audioRef = useRef(null)
 
@@ -795,6 +135,79 @@ export default function HomePage() {
 
   // 定制剧本"开始互动"按钮是否可用
   const canStartCustom = !!selectedCharId && !!selectedSceneId
+
+  const handleHorizontalDragStart = useCallback((event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    dragScrollStateRef.current = {
+      pointerId: event.pointerId,
+      container: event.currentTarget,
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollLeft: event.currentTarget.scrollLeft,
+      moved: false,
+      axis: null,
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }, [])
+
+  const handleHorizontalDragMove = useCallback((event) => {
+    const dragState = dragScrollStateRef.current
+    if (dragState.pointerId !== event.pointerId) return
+
+    const deltaX = event.clientX - dragState.startX
+    const deltaY = event.clientY - dragState.startY
+
+    if (!dragState.axis) {
+      if (Math.abs(deltaX) < 6 && Math.abs(deltaY) < 6) return
+      dragState.axis = Math.abs(deltaX) > Math.abs(deltaY) ? 'x' : 'y'
+    }
+
+    if (dragState.axis !== 'x') return
+
+    if (!dragState.moved && Math.abs(deltaX) > 6) {
+      dragState.moved = true
+      suppressHorizontalClickRef.current = true
+    }
+
+    if (!dragState.moved) return
+
+    event.preventDefault()
+    event.currentTarget.scrollLeft = dragState.startScrollLeft - deltaX
+  }, [])
+
+  const handleHorizontalDragEnd = useCallback((event) => {
+    const dragState = dragScrollStateRef.current
+    if (dragState.pointerId !== event.pointerId) return
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+
+    dragScrollStateRef.current = {
+      pointerId: null,
+      container: null,
+      startX: 0,
+      startY: 0,
+      startScrollLeft: 0,
+      moved: false,
+      axis: null,
+    }
+    if (suppressHorizontalClickRef.current) {
+      window.setTimeout(() => {
+        suppressHorizontalClickRef.current = false
+      }, 0)
+    }
+  }, [])
+
+  const handleHorizontalClickCapture = useCallback((event) => {
+    if (!suppressHorizontalClickRef.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    suppressHorizontalClickRef.current = false
+  }, [])
+
+  const handleHorizontalWheel = useCallback((event) => {
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+    event.preventDefault()
+    event.currentTarget.scrollLeft += event.deltaY
+  }, [])
 
   // ── 打字机效果 ───────────────────────────────────────────
   const typeText = useCallback((text) => {
@@ -1191,7 +604,20 @@ export default function HomePage() {
                     </span>
                   )}
                 </p>
-                <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+                <div
+                  className="flex gap-3 overflow-x-auto scrollbar-hide pb-1 pr-4 cursor-grab select-none"
+                  style={{
+                    WebkitOverflowScrolling: 'touch',
+                    touchAction: 'pan-y',
+                    overscrollBehaviorX: 'contain',
+                  }}
+                  onPointerDown={handleHorizontalDragStart}
+                  onPointerMove={handleHorizontalDragMove}
+                  onPointerUp={handleHorizontalDragEnd}
+                  onPointerCancel={handleHorizontalDragEnd}
+                  onClickCapture={handleHorizontalClickCapture}
+                  onWheel={handleHorizontalWheel}
+                >
                   {CHARACTERS.map((char) => (
                     <CharSelectCard
                       key={char.id}
@@ -1215,7 +641,20 @@ export default function HomePage() {
                     </span>
                   )}
                 </p>
-                <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+                <div
+                  className="flex gap-3 overflow-x-auto scrollbar-hide pb-1 pr-4 cursor-grab select-none"
+                  style={{
+                    WebkitOverflowScrolling: 'touch',
+                    touchAction: 'pan-y',
+                    overscrollBehaviorX: 'contain',
+                  }}
+                  onPointerDown={handleHorizontalDragStart}
+                  onPointerMove={handleHorizontalDragMove}
+                  onPointerUp={handleHorizontalDragEnd}
+                  onPointerCancel={handleHorizontalDragEnd}
+                  onClickCapture={handleHorizontalClickCapture}
+                  onWheel={handleHorizontalWheel}
+                >
                   {SCENES.map((scene) => (
                     <SceneSelectCard
                       key={scene.id}
