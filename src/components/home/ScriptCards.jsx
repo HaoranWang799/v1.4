@@ -82,7 +82,8 @@ export function ScriptCard({ script, onClick }) {
  * AI 定制剧本卡片
  */
 export function GeneratedScriptCard({ script, onClick }) {
-  const [imgSrc, setImgSrc] = useState(`/images/covers/${script.id}.jpg`)
+  const coverKey = script.charId || script.id
+  const [imgSrc, setImgSrc] = useState(`/images/covers/${coverKey}.jpg`)
 
   return (
     <button
@@ -94,7 +95,7 @@ export function GeneratedScriptCard({ script, onClick }) {
           src={imgSrc}
           alt=""
           onError={() => {
-            if (imgSrc.endsWith('.jpg')) setImgSrc(`/images/covers/${script.id}.png`)
+            if (imgSrc.endsWith('.jpg')) setImgSrc(`/images/covers/${coverKey}.png`)
             else setImgSrc(null)
           }}
           className="absolute inset-0 w-full h-full object-cover"
