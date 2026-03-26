@@ -75,6 +75,9 @@ export default function HomePage() {
   // ── 剧本进度（0-100，初始 35）────────────────────────────
   const [progressValue, setProgressValue] = useState(35)
 
+  // ── TTS 音频总时长（秒），AI 模式下动态更新 ──────────────
+  const [audioDuration, setAudioDuration] = useState(TOTAL_SECONDS)
+
   // ── 新增：控制模式切换（'ai' | 'manual'）────────────────
   // TODO: 接入后端后可持久化用户偏好到 /api/user/preferences
   const [controlMode, setControlMode] = useState('ai')
@@ -114,6 +117,8 @@ export default function HomePage() {
   // ── 衍生数据 ─────────────────────────────────────────────
   const activeChar  = activeScript ? CHARACTERS.find(c => c.id === activeScript.charId) : null
   const activeScene = activeScript ? SCENES.find(s => s.id === activeScript.sceneId)    : null
+  // AI 生成模式用 TTS 实际时长，其他模式用固定会话时长
+  const displayTotalSeconds = activeScript?.isAIGenerated ? audioDuration : TOTAL_SECONDS
   const isIntimate  = temperature >= 60
   const tempFull    = temperature >= 100
 
@@ -308,7 +313,7 @@ export default function HomePage() {
     setAiFreq(36.8)
     setIsPaused(false)
     // AI 生成的剧本：进入时用开场白作为首屏文字
-    if (script.openingLine && script.charId === 'ai') {
+    if (script.openingLine && script.isAIGenerated) {
       pendingOpeningLineRef.current = script.openingLine
     }
     setView('interact')
@@ -330,15 +335,16 @@ export default function HomePage() {
   const togglePause = useCallback(() => {
     const nextPaused = !isPaused
     setIsPaused(nextPaused)
-    if (!audioRef.current) return
-    if (nextPaused) {
-      audioRef.current.pause()
-      return
+    // 背景音乐（非 AI 剧本）
+    if (audioRef.current) {
+      if (nextPaused) audioRef.current.pause()
+      else audioRef.current.play().catch(() => setIsPaused(true))
     }
-    audioRef.current.play().catch(() => {
-      // 浏览器可能拦截手动恢复播放，失败时保留暂停状态
-      setIsPaused(true)
-    })
+    // TTS 开场白（AI 生成剧本）
+    if (openingAudioRef.current) {
+      if (nextPaused) openingAudioRef.current.pause()
+      else openingAudioRef.current.play().catch(() => setIsPaused(true))
+    }
   }, [isPaused])
 
   // ── 主按钮点击 ───────────────────────────────────────────
@@ -378,23 +384,41 @@ export default function HomePage() {
     try {
       const { character, audioBase64 } = await generateScriptApi(customPrompt.trim())
       const ts = Date.now()
-      const base = {
-        charId:         'ai',
-        sceneId:        'balcony',
-        cover:          '✨',
-        coverEmoji:     '✨',
-        tag:            'AI 生成',
-        downloads:      'AI 生成',
-        rating:         null,
-        name:           character.name,
-        personalityTag: character.personalityTag,
-        openingLine:    character.openingLine,
-        gradient:       character.gradient,
-        audioBase64:    audioBase64 || null,
-      }
+      const witchChar  = CHARACTERS.find(c => c.id === 'witch')
+      const knightChar = CHARACTERS.find(c => c.id === 'knight')
       setGeneratedScripts([
-        { ...base, id: `ai-${ts}-a` },
-        { ...base, id: `ai-${ts}-b` },
+        {
+          id:             `ai-${ts}-a`,
+          charId:         'witch',
+          isAIGenerated:  true,
+          sceneId:        'balcony',
+          cover:          witchChar.emoji,
+          coverEmoji:     witchChar.emoji,
+          tag:            'AI 生成',
+          downloads:      'AI 生成',
+          rating:         null,
+          name:           witchChar.name,
+          personalityTag: witchChar.tag,
+          openingLine:    character.openingLine,
+          gradient:       'from-[#1a0a30] to-[#3a1060]',
+          audioBase64:    audioBase64 || null,
+        },
+        {
+          id:             `ai-${ts}-b`,
+          charId:         'knight',
+          isAIGenerated:  true,
+          sceneId:        'balcony',
+          cover:          knightChar.emoji,
+          coverEmoji:     knightChar.emoji,
+          tag:            'AI 生成',
+          downloads:      'AI 生成',
+          rating:         null,
+          name:           knightChar.name,
+          personalityTag: knightChar.tag,
+          openingLine:    character.openingLine,
+          gradient:       'from-[#0d1a3a] to-[#1a3860]',
+          audioBase64:    audioBase64 || null,
+        },
       ])
     } catch (err) {
       alert(`✨ 生成失败：${err.message}`)
@@ -430,7 +454,7 @@ export default function HomePage() {
   // ── 交互模式背景音乐（演示版，文件路径：public/audio/demo.mp3）────
   // AI 生成的剧本不播放背景音，只播 TTS 开场白语音
   useEffect(() => {
-    if (view === 'interact' && activeScript?.charId !== 'ai') {
+    if (view === 'interact' && !activeScript?.isAIGenerated) {
       // 进入交互模式：创建音频实例并循环播放
       audioRef.current = new Audio('/audio/demo.mp3')
       audioRef.current.loop = true
@@ -462,7 +486,22 @@ export default function HomePage() {
     if (view === 'interact' && activeScript?.audioBase64) {
       const audio = new Audio(`data:audio/mp3;base64,${activeScript.audioBase64}`)
       openingAudioRef.current = audio
+      audio.addEventListener('loadedmetadata', () => {
+        setAudioDuration(Math.ceil(audio.duration))
+        setProgressValue(0)
+      })
+      audio.addEventListener('timeupdate', () => {
+        if (audio.duration) {
+          setProgressValue(Math.round(audio.currentTime / audio.duration * 100))
+        }
+      })
+      audio.addEventListener('ended', () => {
+        setProgressValue(100)
+        setIsPaused(true)
+      })
       audio.play().catch(() => {})
+    } else {
+      setAudioDuration(TOTAL_SECONDS)
     }
     return () => {
       if (openingAudioRef.current) {
@@ -841,10 +880,10 @@ export default function HomePage() {
                 <div className="flex-1">
                   <div className="flex justify-between items-center mb-1.5">
                     <span className="text-[10px] text-[rgba(245,240,242,0.55)] tabular-nums font-medium">
-                      {formatTime(Math.round(progressValue / 100 * TOTAL_SECONDS))}
+                      {formatTime(Math.round(progressValue / 100 * displayTotalSeconds))}
                     </span>
                     <span className="text-[10px] text-[rgba(245,240,242,0.22)] tabular-nums">
-                      {formatTime(TOTAL_SECONDS)}
+                      {formatTime(displayTotalSeconds)}
                     </span>
                   </div>
                   <input
@@ -852,7 +891,13 @@ export default function HomePage() {
                     min="0"
                     max="100"
                     value={progressValue}
-                    onChange={e => setProgressValue(Number(e.target.value))}
+                    onChange={e => {
+                      const val = Number(e.target.value)
+                      setProgressValue(val)
+                      if (openingAudioRef.current && openingAudioRef.current.duration) {
+                        openingAudioRef.current.currentTime = val / 100 * openingAudioRef.current.duration
+                      }
+                    }}
                     className="w-full h-1 rounded-full outline-none cursor-pointer appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer"
                     style={{ background: `linear-gradient(90deg, #FF9ACB ${progressValue}%, rgba(255,255,255,0.12) ${progressValue}%)` }}
                   />
