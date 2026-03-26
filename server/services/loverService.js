@@ -194,7 +194,12 @@ export async function generateMessage(userText, forceRefresh = false, context = 
 
     // 缓存结果
     setCachedLoverMessage(result)
-    await rememberLoverMessage(result, { userName: context?.userName || memory?.lastUserName })
+
+    try {
+      await rememberLoverMessage(result, { userName: context?.userName || memory?.lastUserName })
+    } catch (memoryError) {
+      console.warn('⚠️ [LoverService] 记忆写入失败，已跳过持久化:', memoryError.message)
+    }
 
     return result
   } catch (error) {

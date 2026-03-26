@@ -1,10 +1,23 @@
 import { mkdir, readFile, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const MAX_MEMORY_ITEMS = 6
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const STORE_PATH = join(__dirname, '../data/virtual-lover-store.json')
+
+function resolveStorePath() {
+  const customPath = String(process.env.VIRTUAL_LOVER_STORE_PATH || '').trim()
+  if (customPath) return customPath
+
+  if (process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT) {
+    return join(tmpdir(), 'virtual-lover-store.json')
+  }
+
+  return join(__dirname, '../data/virtual-lover-store.json')
+}
+
+const STORE_PATH = resolveStorePath()
 
 const DEFAULT_MEMORY = {
   interactionCount: 0,
@@ -15,6 +28,21 @@ const DEFAULT_MEMORY = {
 
 let loverMemory = { ...DEFAULT_MEMORY }
 let isLoaded = false
+let persistenceAvailable = true
+
+async function safePersistMemory() {
+  if (!persistenceAvailable) return false
+
+  try {
+    await mkdir(dirname(STORE_PATH), { recursive: true })
+    await writeFile(STORE_PATH, JSON.stringify(loverMemory, null, 2), 'utf8')
+    return true
+  } catch (error) {
+    persistenceAvailable = false
+    console.warn('⚠️ [LoverMemory] 持久化不可用，已退回进程内存模式:', error.message)
+    return false
+  }
+}
 
 async function ensureMemoryLoaded() {
   if (isLoaded) return
@@ -28,16 +56,12 @@ async function ensureMemoryLoaded() {
       recentMessages: Array.isArray(parsed.recentMessages) ? parsed.recentMessages : [],
       lastUserName: typeof parsed.lastUserName === 'string' ? parsed.lastUserName : undefined,
     }
-  } catch {
-    await persistMemory()
+  } catch (error) {
+    console.warn('⚠️ [LoverMemory] 读取持久化记忆失败，使用默认内存状态:', error.message)
+    await safePersistMemory()
   }
 
   isLoaded = true
-}
-
-async function persistMemory() {
-  await mkdir(dirname(STORE_PATH), { recursive: true })
-  await writeFile(STORE_PATH, JSON.stringify(loverMemory, null, 2), 'utf8')
 }
 
 function getRelationshipStage(interactionCount) {
@@ -66,7 +90,7 @@ async function rememberLoverMessage(message, { userName } = {}) {
   if (lastMessage?.text === message.text) {
     loverMemory.lastMood = message.mood || loverMemory.lastMood
     if (userName) loverMemory.lastUserName = userName
-    await persistMemory()
+    await safePersistMemory()
     return
   }
 
@@ -84,13 +108,13 @@ async function rememberLoverMessage(message, { userName } = {}) {
     loverMemory.recentMessages = loverMemory.recentMessages.slice(-MAX_MEMORY_ITEMS)
   }
 
-  await persistMemory()
+  await safePersistMemory()
 }
 
 async function clearLoverMemory() {
   await ensureMemoryLoaded()
   loverMemory = { ...DEFAULT_MEMORY }
-  await persistMemory()
+  await safePersistMemory()
 }
 
 export { clearLoverMemory, getLoverMemoryContext, rememberLoverMessage }
