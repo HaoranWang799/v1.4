@@ -23,6 +23,7 @@ import { CHARACTERS } from '../data/characters'
 import { SCENES } from '../data/scenes'
 import { SCRIPTS, SCRIPT_DESCRIPTIONS, BG_VIDEO_IDS } from '../data/scripts'
 import { PRESETS, TOTAL_SECONDS, pick, formatTime, generateHearts } from '../data/interactData'
+import { generateScript as generateScriptApi } from '../api/scripts'
 
 export default function HomePage() {
 
@@ -31,8 +32,9 @@ export default function HomePage() {
 
   // ── 自定义剧本 ───────────────────────────────────────────
   const [customPrompt,     setCustomPrompt]     = useState('')
-  // TODO: 接入 AI 接口后，generatedScripts 改为接口返回的真实数组
+  // generatedScripts: AI 接口返回的角色数组
   const [generatedScripts, setGeneratedScripts] = useState([])
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // ── 定制剧本选择状态 ─────────────────────────────────────
   // TODO: 接入后端后，selectedCharId / selectedSceneId 可持久化到用户偏好
@@ -103,6 +105,8 @@ export default function HomePage() {
   const suppressHorizontalClickRef = useRef(false)
   // TODO: 替换 /audio/demo.mp3 为真实场景配乐（后续可按 activeScript.id 动态切换音频）
   const audioRef = useRef(null)
+  const openingAudioRef = useRef(null)
+  const pendingOpeningLineRef = useRef(null)
 
   // 同步 temperature 到 ref（供 interval 回调读取最新值）
   useEffect(() => { temperatureRef.current = temperature }, [temperature])
@@ -272,10 +276,15 @@ export default function HomePage() {
 
   useEffect(() => {
     if (view !== 'interact') return
-    autoTextCbRef.current?.()
+    if (pendingOpeningLineRef.current) {
+      typeText(pendingOpeningLineRef.current)
+      pendingOpeningLineRef.current = null
+    } else {
+      autoTextCbRef.current?.()
+    }
     const id = setInterval(() => autoTextCbRef.current?.(), 3000)
     return () => clearInterval(id)
-  }, [view])
+  }, [view, typeText])
 
   // ── 进入交互模式 ─────────────────────────────────────────
   const enterInteract = useCallback((script) => {
@@ -298,6 +307,10 @@ export default function HomePage() {
     setAiIntens(50)
     setAiFreq(36.8)
     setIsPaused(false)
+    // AI 生成的剧本：进入时用开场白作为首屏文字
+    if (script.openingLine && script.charId === 'ai') {
+      pendingOpeningLineRef.current = script.openingLine
+    }
     setView('interact')
   }, [])
 
@@ -354,46 +367,40 @@ export default function HomePage() {
     }, 1500)
   }, [isVoiceActive, increaseTemp, triggerDeviceNotif, triggerAvatarPop, typeText, pickResponse])
 
-  // ── 自定义剧本生成 ───────────────────────────────────────
-  // TODO: 接入 generateCharacterFromPrompt(customPrompt) 后，替换为接口返回的真实角色数据
-  // 演示版：固定返回"魅惑女巫"和"狂野骑士"两个性感定制角色，与输入内容暂不绑定
-  const handleGenerate = useCallback(() => {
+  // ── 自定义剧本生成（接入 Grok + Fish Audio TTS）────────────
+  const handleGenerate = useCallback(async () => {
     if (!customPrompt.trim()) {
       alert('✨ 请先描述你的幻想场景和角色，让 AI 为你创造专属剧本。')
       return
     }
-    setGeneratedScripts([
-      {
-        // 演示版：魅惑女巫（神秘/诱惑），无真实视频/图片时显示 emoji 水印
-        id:             'witch',
-        charId:         'witch',
+    setIsGenerating(true)
+    setGeneratedScripts([])
+    try {
+      const { character, audioBase64 } = await generateScriptApi(customPrompt.trim())
+      const ts = Date.now()
+      const base = {
+        charId:         'ai',
         sceneId:        'balcony',
-        cover:          '🧙‍♀️',
-        coverEmoji:     '🧙‍♀️',
-        name:           '🌙 魅惑女巫',
+        cover:          '✨',
+        coverEmoji:     '✨',
         tag:            'AI 生成',
-        personalityTag: '神秘 / 诱惑',
-        openingLine:    '想尝尝禁忌的魔法吗？',
         downloads:      'AI 生成',
         rating:         null,
-        gradient:       'from-[#1a0a30] to-[#3a1060]',
-      },
-      {
-        // 演示版：狂野骑士（激情/征服），无真实视频/图片时显示 emoji 水印
-        id:             'knight',
-        charId:         'knight',
-        sceneId:        'office',
-        cover:          '🏇',
-        coverEmoji:     '🏇',
-        name:           '🔥 狂野骑士',
-        tag:            'AI 生成',
-        personalityTag: '激情 / 征服',
-        openingLine:    '骑上我，别停…',
-        downloads:      'AI 生成',
-        rating:         null,
-        gradient:       'from-[#2a0a0a] to-[#4a1010]',
-      },
-    ])
+        name:           character.name,
+        personalityTag: character.personalityTag,
+        openingLine:    character.openingLine,
+        gradient:       character.gradient,
+        audioBase64:    audioBase64 || null,
+      }
+      setGeneratedScripts([
+        { ...base, id: `ai-${ts}-a` },
+        { ...base, id: `ai-${ts}-b` },
+      ])
+    } catch (err) {
+      alert(`✨ 生成失败：${err.message}`)
+    } finally {
+      setIsGenerating(false)
+    }
   }, [customPrompt])
 
   // ── 定制剧本：点击"开始互动" ──────────────────────────────
@@ -445,6 +452,26 @@ export default function HomePage() {
       }
     }
   }, [view])
+
+  // ── TTS 开场白音频（AI 生成剧本进入互动时播放一次）────────
+  useEffect(() => {
+    if (openingAudioRef.current) {
+      openingAudioRef.current.pause()
+      openingAudioRef.current = null
+    }
+    if (view === 'interact' && activeScript?.audioBase64) {
+      const audio = new Audio(`data:audio/mp3;base64,${activeScript.audioBase64}`)
+      openingAudioRef.current = audio
+      audio.play().catch(() => {})
+    }
+    return () => {
+      if (openingAudioRef.current) {
+        openingAudioRef.current.pause()
+        openingAudioRef.current = null
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, activeScript?.id])
 
   // ── 清理定时器 ───────────────────────────────────────────
   useEffect(() => {
@@ -505,22 +532,26 @@ export default function HomePage() {
                   type="text"
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+                  onKeyDown={(e) => e.key === 'Enter' && !isGenerating && handleGenerate()}
+                  disabled={isGenerating}
                   placeholder="描述你心中的幻想场景和角色…"
                   className="
                     flex-1 min-w-0 rounded-xl px-3 py-2.5 text-xs
                     bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)]
                     text-[rgba(245,240,242,0.85)] placeholder-[rgba(245,240,242,0.3)]
                     focus:outline-none focus:border-[rgba(255,154,203,0.4)]
-                    transition-colors
+                    transition-colors disabled:opacity-60
                   "
                 />
                 <button
                   onClick={handleGenerate}
-                  className="flex-shrink-0 flex items-center gap-1.5 btn-main rounded-xl px-3 py-2.5 text-white text-xs font-medium whitespace-nowrap"
+                  disabled={isGenerating}
+                  className="flex-shrink-0 flex items-center gap-1.5 btn-main rounded-xl px-3 py-2.5 text-white text-xs font-medium whitespace-nowrap disabled:opacity-60"
                 >
-                  <Sparkles size={13} />
-                  ✨ 生成
+                  {isGenerating
+                    ? <span className="flex items-center gap-1">⏳ 生成中…</span>
+                    : <><Sparkles size={13} />✨ 生成</>
+                  }
                 </button>
               </div>
             </section>

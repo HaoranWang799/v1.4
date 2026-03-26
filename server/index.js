@@ -16,6 +16,7 @@ import { errorHandler } from './middleware/errorHandler.js'
 import loverRoutes from './routes/lover.js'
 import healthRoutes from './routes/health.js'
 import communityRoutes from './routes/community.js'
+import scriptsRoutes from './routes/scripts.js'
 
 // dotenv 加载 server/.env
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -59,6 +60,7 @@ app.use(express.json())
 app.use('/api/lover', loverRoutes)
 app.use('/api/health', healthRoutes)
 app.use('/api/community', communityRoutes)
+app.use('/api/scripts', scriptsRoutes)
 
 // ── 错误处理中间件（必须在 API 路由之后）──────────────────
 app.use(errorHandler)
