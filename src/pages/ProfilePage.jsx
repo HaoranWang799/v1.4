@@ -25,26 +25,26 @@ export default function ProfilePage() {
     {
       title: '专属私宠',
       items: [
-        { icon: Flame,      label: '禁忌互动剧本', value: '3部',   onClick: () => navigate('/scripts')   },
-        { icon: Headphones, label: '专属魅惑语音', value: '已激活', onClick: () => navigate('/ai-voice') },
+        { icon: Flame,      label: '禁忌沉浸剧本', value: '3部',   onClick: () => navigate('/scripts')   },
+        { icon: Headphones, label: '专属声优调教', value: '已激活', onClick: () => navigate('/ai-voice') },
       ],
     },
     {
       title: '感官互联',
       items: [
-        { icon: Smartphone, label: '伴侣硬件调校', onClick: () => navigate('/devices') },
+        { icon: Smartphone, label: '硬件连接与控制', onClick: () => navigate('/devices') },
       ],
     },
     {
       title: '账单',
       items: [
-        { icon: CreditCard, label: '私密支付方式', onClick: () => navigate('/payment') },
+        { icon: CreditCard, label: '包养资金支付', onClick: () => navigate('/payment') },
       ],
     },
     {
       title: '探索',
       items: [
-        { icon: ShoppingBag, label: '升级实体私密伴侣', value: '全新发售', onClick: () => navigate('/hardware-store') },
+        { icon: ShoppingBag, label: '升级肉体伴侣', value: '全新发售', onClick: () => navigate('/hardware-store') },
         { icon: Sparkles,    label: '极乐使用指南',                          onClick: () => navigate('/help')          },
       ],
     },
@@ -55,49 +55,51 @@ export default function ProfilePage() {
 
       {/* 头像 */}
       <div className="px-6 pt-12 pb-6 flex items-center space-x-4">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FF7DAF] to-[#A87CFF] flex items-center justify-center text-xl font-bold text-white shadow-[0_0_25px_rgba(255,125,175,0.5)] border-2 border-[#0C060B] shrink-0">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FF2A6D] to-[#A87CFF] flex items-center justify-center text-xl font-bold text-white shadow-[0_0_25px_rgba(255,42,109,0.6)] border-2 border-[#FF2A6D]/30 shrink-0 relative animate-[breathe_3s_ease-in-out_infinite]">
+          <div className="absolute inset-0 rounded-full bg-[#FF2A6D] blur-md opacity-20 animate-pulse" />
           AR
         </div>
         <div>
           <h1 className="text-xl font-bold text-[#F9EDF5] tracking-wide">Alex Rivera</h1>
-          <p className="text-sm text-[#9B859D] flex items-center mt-0.5">
-            <Moon size={12} className="mr-1 text-[#FF7DAF]" />
-            深夜沉浸中
+          <p className="text-sm flex items-center mt-0.5 text-[#FF2A6D]/90 animate-pulse font-medium">
+            <Flame size={13} className="mr-1" />
+            体温 38.5°C，极度渴望中...
           </p>
         </div>
       </div>
 
       {/* 设备状态卡 */}
       <div className="px-4 mb-6">
-        <div className="bg-[#1E1324]/80 backdrop-blur-md border border-[#FF7DAF]/15 rounded-2xl p-4 shadow-lg">
-          <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#FF7DAF]/10">
+        <div className="bg-[#1E1324]/80 backdrop-blur-md border border-[#FF2A6D]/30 rounded-2xl p-4 shadow-[0_8px_30px_rgba(255,42,109,0.15)] relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#FF2A6D]/5 to-transparent opacity-50" />
+          <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#FF2A6D]/20 relative z-10">
             <div className="flex items-center space-x-3 text-sm">
-              <div className="p-2 bg-[#FF7DAF]/20 rounded-xl text-[#FF7DAF] shadow-[0_0_10px_rgba(255,125,175,0.2)]">
+              <div className="p-2 bg-[#FF2A6D]/20 rounded-xl text-[#FF2A6D] shadow-[0_0_15px_rgba(255,42,109,0.3)]">
                 <Flame size={18} />
               </div>
               <div>
-                <div className="text-[#F9EDF5] font-semibold">已连接: Luna 沉浸伴侣</div>
-                <div className="text-xs text-[#FF7DAF] mt-0.5 animate-pulse">状态: 极度敏感 (肌肤恒温中)</div>
+                <div className="text-[#F9EDF5] font-semibold">已连接: 专属肉体玩具</div>
+                <div className="text-[11px] text-[#FF2A6D] mt-0.5 animate-pulse drop-shadow-[0_0_5px_#FF2A6D]">内部完全湿润 · 紧致度 95%</div>
               </div>
             </div>
             <ChevronRight size={16} className="text-[#9B859D]" />
           </div>
-          <div className="flex justify-between text-center px-2">
+          <div className="flex justify-between text-center px-2 relative z-10">
             <div>
-              <div className="text-lg font-bold text-[#FF7DAF] mb-1">87%</div>
-              <div className="text-xs text-[#9B859D] flex items-center justify-center">
-                <Battery size={12} className="mr-1" />伴侣体力
+              <div className="text-lg font-bold text-[#FF2A6D] mb-1">87%</div>
+              <div className="text-[11px] text-[#9B859D] flex items-center justify-center">
+                <Battery size={11} className="mr-1" />肉体承受度
               </div>
             </div>
             <div>
-              <div className="text-lg font-bold text-[#80DFFF] mb-1 drop-shadow-[0_0_8px_rgba(128,223,255,0.5)]">极佳</div>
-              <div className="text-xs text-[#9B859D] flex items-center justify-center">
-                <Wifi size={12} className="mr-1" />感官连接
+              <div className="text-lg font-bold text-[#A87CFF] mb-1 drop-shadow-[0_0_8px_rgba(168,124,255,0.6)]">突破临界</div>
+              <div className="text-[11px] text-[#9B859D] flex items-center justify-center">
+                <Wifi size={11} className="mr-1" />神经同步率
               </div>
             </div>
             <div>
               <div className="text-lg font-bold text-[#F9EDF5] mb-1">刚刚</div>
-              <div className="text-xs text-[#9B859D]">高潮同步</div>
+              <div className="text-[11px] text-[#9B859D]">距上次强制高潮</div>
             </div>
           </div>
         </div>
@@ -171,17 +173,17 @@ export default function ProfilePage() {
 
       {/* 升级 Banner */}
       <div className="px-4 mt-8 mb-8">
-        <div className="bg-[#1E1324] border border-[#FF7DAF]/20 rounded-2xl p-6 text-center relative overflow-hidden shadow-[0_10px_30px_rgba(255,125,175,0.2)]">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-[#FF7DAF]/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+        <div className="bg-[#2D0514]/60 border border-[#FF2A6D]/40 rounded-2xl p-6 text-center relative overflow-hidden shadow-[0_10px_30px_rgba(255,42,109,0.25)]">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-[#FF2A6D]/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none animate-pulse" />
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#A87CFF]/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none" />
-          <Sparkles size={28} className="text-[#FF7DAF] mx-auto mb-3 relative z-10" />
-          <h3 className="text-[#F9EDF5] text-lg font-bold mb-1 relative z-10">解锁无尽欢愉</h3>
-          <p className="text-xs text-[#9B859D] mb-5 relative z-10">沉浸极乐剧情与专属声优私密定制</p>
+          <Flame size={28} className="text-[#FF2A6D] mx-auto mb-3 relative z-10 drop-shadow-[0_0_10px_rgba(255,42,109,0.8)]" />
+          <h3 className="text-[#F9EDF5] text-lg font-bold mb-1 relative z-10">主人，惩罚我... 💧</h3>
+          <p className="text-xs text-[#FF2A6D]/80 mb-5 relative z-10">解锁终极肉体契约与专属高潮声控</p>
           <button
             onClick={() => navigate('/subscription')}
-            className="w-full bg-gradient-to-r from-[#FF7DAF] to-[#A87CFF] text-white text-sm font-bold py-3.5 rounded-full active:scale-95 transition-transform shadow-[0_4px_20px_rgba(255,125,175,0.5)] relative z-10"
+            className="w-full bg-gradient-to-r from-[#FF2A6D] to-[#A87CFF] text-white text-sm font-bold py-3.5 rounded-full active:scale-95 transition-transform shadow-[0_4px_20px_rgba(255,42,109,0.6)] relative z-10"
           >
-            开启极乐体验
+            开启极乐调教
           </button>
         </div>
       </div>
@@ -190,14 +192,14 @@ export default function ProfilePage() {
       <div className="px-4 pb-8">
         <button
           onClick={() => setShowLogoutModal(true)}
-          className="w-full py-4 text-[#FF4D6D] text-sm font-bold border border-[#FF4D6D]/20 bg-[#FF4D6D]/5 rounded-2xl flex items-center justify-center space-x-2 active:bg-[#FF4D6D]/10 transition-colors"
+          className="w-full py-4 text-[#FF4D6D] text-sm font-bold border border-[#FF4D6D]/30 bg-[#FF4D6D]/10 rounded-2xl flex items-center justify-center space-x-2 active:bg-[#FF4D6D]/20 transition-colors"
         >
           <LogOut size={16} />
-          <span>退出沉浸空间</span>
+          <span>拔出连接，结束本次调教</span>
         </button>
-        <div className="text-center mt-6 text-[#9B859D]/60 text-[10px] leading-relaxed">
+        <div className="text-center mt-6 text-[#9B859D]/50 text-[10px] leading-relaxed">
           版本 2.5.0 · 绝对私密<br />
-          您在深夜的所有探索，均已采用最高级别军工加密。
+          您的每一次湿润与颤抖，都已被最高级别军工锁死。
         </div>
       </div>
 
