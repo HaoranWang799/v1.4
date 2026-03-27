@@ -1,4 +1,4 @@
-﻿/**
+/**
  * HomePage.jsx — 互动主场景 v7 (重构版)
  *
  * v7 变更：
@@ -7,7 +7,7 @@
  *   • 本文件仅保留主逻辑 + 视图编排
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Sparkles, Pause, Play } from 'lucide-react'
+import { Sparkles, Pause, Play, Flame } from 'lucide-react'
 import {
   HeaderStatusBar,
   SceneTimeline,
@@ -810,7 +810,7 @@ export default function HomePage() {
               className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
               style={{ background: 'linear-gradient(135deg, #FF2A6D 0%, #FF7DAF 55%, #A87CFF 100%)' }}
             >
-              <span className="text-2xl flex-shrink-0 select-none">�</span>
+              <Flame size={22} className="flex-shrink-0 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" fill="white" />
               <div>
                 <p className="text-[13px] font-bold text-white leading-snug">
                   你昨天的记录是亚洲第 888 名，实在是 🍌 猛男！
