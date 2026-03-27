@@ -88,7 +88,7 @@ function buildUserPrompt(userText, context, memory, options = {}) {
     ? options.avoidTexts.map((item) => normalizeText(item)).filter(Boolean)
     : []
 
-  const variationLines = [
+  const variationLines = [ 
     `本次变体要求：${options.variationCue || pickLoverVariationCue()}`,
     `本次生成标识：${options.generationToken || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`,
   ]
@@ -111,44 +111,32 @@ function normalizeLoverResult(result, fallbackError = '') {
   }
 }
 
+// ── 预生成槽 ──────────────────────────────────────────────
+// 每次 Grok 调用完成后，后台悄悄生成下一条，用户点击时直接命中 (<10ms)
+const pregenSlot = {
+  pending: null,        // 预生成好的消息对象
+  isGenerating: false,  // 是否正在后台生成
+}
+
+const PREGEN_TTL_MS = 8 * 60 * 1000 // 8分钟内有效
+
+function consumePregen() {
+  if (!pregenSlot.pending) return null
+  const age = Date.now() - new Date(pregenSlot.pending.timestamp).getTime()
+  if (age > PREGEN_TTL_MS) {
+    pregenSlot.pending = null
+    return null
+  }
+  const msg = pregenSlot.pending
+  pregenSlot.pending = null
+  return msg
+}
+
 /**
- * 生成虚拟助手消息
- *
- * 参数：
- *   - userMessage: 用户输入
- *   - forceRefresh: 是否忽略缓存
- *   - context: 上下文信息 { mood, scene, character }
- *
- * 返回：
- *   {
- *     message: string,
- *     mood: string | null,
- *     _provider: 'grok' | 'mock',
- *     _fallback: boolean,
- *     timestamp: ISO string
- *   }
+ * 底层 Grok 调用（不含缓存逻辑，预生成和正常路径共用）
  */
-export async function generateMessage(userText, forceRefresh = false, context = {}, apiKeyOverride = '') {
-  // 验证输入（允许空字符串）
-  if (typeof userText !== 'string') {
-    throw new ValidationError('userText 必须是字符串')
-  }
-
-  // 检查缓存（如果没有强制刷新）
-  if (!forceRefresh) {
-    const cached = getCachedLoverMessage(120000) // 2分钟 TTL
-    if (cached) {
-      console.log('💾 [LoverService] 读取缓存')
-      return {
-        ...cached,
-        _cached: true,
-      }
-    }
-  }
-
-  // 获取 provider 配置
+async function _callGrokCore(userText, context, memory, apiKeyOverride) {
   const config = PROVIDER_CONFIG.lover
-  const memory = await getLoverMemoryContext()
   const avoidTexts = [
     getLatestLoverMessage()?.text,
     ...(Array.isArray(memory?.recentMessages) ? memory.recentMessages.slice(-3).map((item) => item.text) : []),
@@ -162,45 +150,109 @@ export async function generateMessage(userText, forceRefresh = false, context = 
     timeoutMs: config.timeouts.primary,
   })
 
-  try {
-    // 使用 provider 生成消息
-    let result = normalizeLoverResult(await callProviderWithFallback(
+  let result = normalizeLoverResult(await callProviderWithFallback(
+    config.primary,
+    config.fallback,
+    'generateLoverMessage',
+    [buildPromptPayload({ avoidTexts }), apiKeyOverride],
+    {
+      primaryTimeout: config.timeouts.primary,
+      fallbackTimeout: config.timeouts.fallback,
+    }
+  ))
+
+  // 重复检测：和最近说过的完全一样则重试一次
+  if (avoidTexts.some((text) => areTextsEquivalent(text, result.text))) {
+    result = normalizeLoverResult(await callProviderWithFallback(
       config.primary,
       config.fallback,
       'generateLoverMessage',
-      [buildPromptPayload({ avoidTexts }), apiKeyOverride],
+      [buildPromptPayload({
+        avoidTexts: [...avoidTexts, result.text],
+        variationCue: '必须换一个新的表达角度，句式和意象都不要与最近几条相同。',
+        generationToken: `${Date.now()}-retry-${Math.random().toString(36).slice(2, 8)}`,
+      }), apiKeyOverride],
       {
         primaryTimeout: config.timeouts.primary,
         fallbackTimeout: config.timeouts.fallback,
       }
     ))
+  }
 
-    if (forceRefresh && avoidTexts.some((text) => areTextsEquivalent(text, result.text))) {
-      result = normalizeLoverResult(await callProviderWithFallback(
-        config.primary,
-        config.fallback,
-        'generateLoverMessage',
-        [buildPromptPayload({
-          avoidTexts: [...avoidTexts, result.text],
-          variationCue: '必须换一个新的表达角度，句式和意象都不要与最近几条相同。',
-          generationToken: `${Date.now()}-retry-${Math.random().toString(36).slice(2, 8)}`,
-        }), apiKeyOverride],
-        {
-          primaryTimeout: config.timeouts.primary,
-          fallbackTimeout: config.timeouts.fallback,
-        }
-      ))
+  try {
+    await rememberLoverMessage(result, { userName: context?.userName || memory?.lastUserName })
+  } catch (memoryError) {
+    console.warn('⚠️ [LoverService] 记忆写入失败，已跳过持久化:', memoryError.message)
+  }
+
+  return result
+}
+
+/**
+ * 后台静默预生成下一条消息，完成后存入 pregenSlot
+ */
+function startPregenBackground(context = {}, apiKeyOverride = '') {
+  if (pregenSlot.isGenerating || pregenSlot.pending) return
+  pregenSlot.isGenerating = true
+  console.log('🔮 [LoverService] 开始后台预生成...')
+  getLoverMemoryContext()
+    .then((memory) => _callGrokCore('', context, memory, apiKeyOverride))
+    .then((result) => {
+      pregenSlot.pending = result
+      console.log('✅ [LoverService] 预生成完成，消息已就绪')
+    })
+    .catch((err) => {
+      console.warn('⚠️ [LoverService] 预生成失败:', err.message)
+    })
+    .finally(() => {
+      pregenSlot.isGenerating = false
+    })
+}
+
+/**
+ * 生成虚拟助手消息
+ *
+ * 参数：
+ *   - userText: 用户输入
+ *   - forceRefresh: 是否忽略缓存
+ *   - context: 上下文信息 { mood, scene, character }
+ *
+ * 返回：
+ *   { text, mood, provider, fallback, timestamp }
+ */
+export async function generateMessage(userText, forceRefresh = false, context = {}, apiKeyOverride = '') {
+  if (typeof userText !== 'string') {
+    throw new ValidationError('userText 必须是字符串')
+  }
+
+  // 普通请求：先查 TTL 短缓存
+  if (!forceRefresh) {
+    const cached = getCachedLoverMessage(120000) // 2分钟 TTL
+    if (cached) {
+      console.log('💾 [LoverService] 读取缓存')
+      return { ...cached, _cached: true }
     }
+  }
 
-    // 缓存结果
+  // 强制刷新：优先命中预生成槽（<10ms 返回）
+  if (forceRefresh) {
+    const pregen = consumePregen()
+    if (pregen) {
+      console.log('⚡ [LoverService] 命中预生成槽，直接返回')
+      setCachedLoverMessage(pregen)
+      // 命中后立刻预热下一条
+      setImmediate(() => startPregenBackground(context, apiKeyOverride))
+      return pregen
+    }
+  }
+
+  // 预生成槽未命中，走正常 Grok 调用
+  try {
+    const memory = await getLoverMemoryContext()
+    const result = await _callGrokCore(userText, context, memory, apiKeyOverride)
     setCachedLoverMessage(result)
-
-    try {
-      await rememberLoverMessage(result, { userName: context?.userName || memory?.lastUserName })
-    } catch (memoryError) {
-      console.warn('⚠️ [LoverService] 记忆写入失败，已跳过持久化:', memoryError.message)
-    }
-
+    // 完成后后台预热下一条
+    setImmediate(() => startPregenBackground(context, apiKeyOverride))
     return result
   } catch (error) {
     console.error('❌ [LoverService] 消息生成失败:', error.message)
@@ -215,6 +267,8 @@ export async function generateMessage(userText, forceRefresh = false, context = 
 export async function clearMemory() {
   try {
     clearLoverCache()
+    pregenSlot.pending = null
+    pregenSlot.isGenerating = false
     await clearLoverMemory()
     console.log('✅ [LoverService] 记忆已清空')
     return {
