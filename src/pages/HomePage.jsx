@@ -808,7 +808,7 @@ export default function HomePage() {
               className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
               style={{ background: 'linear-gradient(135deg, #FF2A6D 0%, #FF7DAF 55%, #A87CFF 100%)' }}
             >
-              <span className="text-2xl flex-shrink-0 select-none">💧</span>
+              <span className="text-2xl flex-shrink-0 select-none">�</span>
               <div>
                 <p className="text-[13px] font-bold text-white leading-snug">
                   你昨天的记录是亚洲第 888 名，实在是 🍌 猛男！
