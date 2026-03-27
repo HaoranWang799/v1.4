@@ -285,7 +285,7 @@ export default function HomePage() {
       moved: false,
       axis: null,
     }
-    event.currentTarget.setPointerCapture?.(event.pointerId)
+    // 不在 pointerdown 时立即 capture，否则子按鈕收不到 pointerup 导致点击失效
   }, [])
 
   const handleHorizontalDragMove = useCallback((event) => {
@@ -306,6 +306,8 @@ export default function HomePage() {
     if (!dragState.moved && Math.abs(deltaX) > 6) {
       dragState.moved = true
       suppressHorizontalClickRef.current = true
+      // 确认是水平拖动后再 capture，这时子按鈕的 click 已经不会再触发
+      event.currentTarget.setPointerCapture?.(event.pointerId)
     }
 
     if (!dragState.moved) return
