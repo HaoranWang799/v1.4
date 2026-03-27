@@ -115,29 +115,137 @@ function normalizeLoverResult(result, fallbackError = '') {
   }
 }
 
-// ── 预生成槽 ──────────────────────────────────────────────
-// 每次 Grok 调用完成后，后台悄悄生成下一条，用户点击时直接命中 (<10ms)
-const pregenSlot = {
-  pending: null,        // 预生成好的消息对象
-  isGenerating: false,  // 是否正在后台生成
+// ── 消息池（批量预生成）────────────────────────────────────
+// 服务启动时发1次 Grok 调用，批量返回10条，存入队列
+// 用户点击时 pool.shift() 瞬间返回；剩余5条时后台补充10条
+
+const POOL_SIZE = 10          // 每批生成数量
+const REFILL_THRESHOLD = 5    // 剩余几条时触发补充
+const POOL_TTL_MS = 30 * 60 * 1000  // 池内消息30分钟内有效
+
+const messagePool = []   // { text, mood, provider, fallback, timestamp }
+let isRefilling = false  // 防并发
+
+// 批量生成专用 system prompt
+const LOVER_BATCH_SYSTEM_PROMPT = `你是一个虚拟恋人，风格要求：
+- 亲密、暧昧、自然，不像机器人
+- 每条只说 1 到 2 句
+- 情绪多样，不要重复句式或意象
+- 可以根据时间调整语气（${new Date().getHours() < 12 ? '早上' : new Date().getHours() < 18 ? '下午' : new Date().getHours() < 22 ? '晚上' : '深夜'}）
+
+一次性生成 ${POOL_SIZE} 条不重复的消息。
+输出格式必须是严格 JSON 数组：
+[{"text":"你的话","mood":"暧昧"},{"text":"另一句话","mood":"温柔"},...]
+
+mood 只能是：暧昧、温柔、调皮。
+只输出 JSON 数组，不要解释，不要任何其他内容。`
+
+function isPoolMessageFresh(msg) {
+  return Date.now() - new Date(msg.timestamp).getTime() < POOL_TTL_MS
 }
 
-const PREGEN_TTL_MS = 8 * 60 * 1000 // 8分钟内有效
-
-function consumePregen() {
-  if (!pregenSlot.pending) return null
-  const age = Date.now() - new Date(pregenSlot.pending.timestamp).getTime()
-  if (age > PREGEN_TTL_MS) {
-    pregenSlot.pending = null
-    return null
+function cleanStalePool() {
+  while (messagePool.length > 0 && !isPoolMessageFresh(messagePool[0])) {
+    messagePool.shift()
   }
-  const msg = pregenSlot.pending
-  pregenSlot.pending = null
-  return msg
 }
 
 /**
- * 底层 Grok 调用（不含缓存逻辑，预生成和正常路径共用）
+ * 批量调用 Grok，返回多条消息数组
+ */
+async function _callGrokBatch(apiKeyOverride = '') {
+  const config = PROVIDER_CONFIG.lover
+  const recentTexts = messagePool.slice(-4).map((m) => m.text)
+
+  const avoidLine = recentTexts.length
+    ? `\n严禁与这些已有内容重复：${recentTexts.join(' / ')}`
+    : ''
+
+  const promptPayload = {
+    systemPrompt: LOVER_BATCH_SYSTEM_PROMPT,
+    userPrompt: `${getTimeContext()}。请生成 ${POOL_SIZE} 条风格各异的恋人消息，情绪尽量多样。${avoidLine}\n生成标识：${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    temperature: 0.9,
+    maxTokens: 500,
+    timeoutMs: config.timeouts.primary * 2,  // 批量给更多时间
+  }
+
+  const raw = await callProviderWithFallback(
+    config.primary,
+    config.fallback,
+    'generateLoverMessage',
+    [promptPayload, apiKeyOverride],
+    {
+      primaryTimeout: config.timeouts.primary * 2,
+      fallbackTimeout: config.timeouts.fallback,
+    }
+  )
+
+  // 尝试解析为数组
+  // grokProvider 返回 { text, mood }，批量时 text 字段里可能是原始数组字符串
+  let items = []
+  try {
+    // 先尝试直接用 raw（如果 provider 直接返回了解析好的结果）
+    if (Array.isArray(raw)) {
+      items = raw
+    } else if (typeof raw?.text === 'string') {
+      // text 字段可能是 JSON 字符串
+      const cleaned = raw.text.replace(/```json|```/g, '').trim()
+      const startIdx = cleaned.indexOf('[')
+      const endIdx = cleaned.lastIndexOf(']')
+      if (startIdx !== -1 && endIdx !== -1) {
+        items = JSON.parse(cleaned.slice(startIdx, endIdx + 1))
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ [LoverService] 批量解析失败，降级单条:', e.message)
+    return []
+  }
+
+  if (!Array.isArray(items) || items.length < 3) {
+    console.warn('⚠️ [LoverService] 批量结果不足3条，降级单条')
+    return []
+  }
+
+  const now = new Date().toISOString()
+  return items
+    .filter((item) => item?.text && typeof item.text === 'string' && item.text.trim())
+    .map((item) => ({
+      text: String(item.text).trim().slice(0, 220),
+      mood: ['暧昧', '温柔', '调皮'].includes(item.mood) ? item.mood : '温柔',
+      provider: raw?.provider || 'grok',
+      fallback: Boolean(raw?.fallback),
+      timestamp: now,
+    }))
+}
+
+/**
+ * 后台批量补充消息池（不阻塞用户）
+ */
+export function refillPool(apiKeyOverride = '') {
+  if (isRefilling) return
+  if (messagePool.length >= POOL_SIZE) return
+  isRefilling = true
+  console.log(`🔮 [LoverService] 开始批量预生成（当前池: ${messagePool.length} 条）...`)
+
+  _callGrokBatch(apiKeyOverride)
+    .then((items) => {
+      if (items.length > 0) {
+        messagePool.push(...items)
+        console.log(`✅ [LoverService] 批量预生成完成，池新增 ${items.length} 条，共 ${messagePool.length} 条`)
+      } else {
+        console.warn('⚠️ [LoverService] 批量结果为空，将依赖单条降级')
+      }
+    })
+    .catch((err) => {
+      console.warn('⚠️ [LoverService] 批量预生成失败:', err.message)
+    })
+    .finally(() => {
+      isRefilling = false
+    })
+}
+
+/**
+ * 底层 Grok 单条调用（池耗尽时的降级路径）
  */
 async function _callGrokCore(userText, context, memory, apiKeyOverride) {
   const config = PROVIDER_CONFIG.lover
@@ -165,7 +273,6 @@ async function _callGrokCore(userText, context, memory, apiKeyOverride) {
     }
   ))
 
-  // 重复检测：和最近说过的完全一样则重试一次
   if (avoidTexts.some((text) => areTextsEquivalent(text, result.text))) {
     result = normalizeLoverResult(await callProviderWithFallback(
       config.primary,
@@ -193,70 +300,53 @@ async function _callGrokCore(userText, context, memory, apiKeyOverride) {
 }
 
 /**
- * 后台静默预生成下一条消息，完成后存入 pregenSlot
- */
-function startPregenBackground(context = {}, apiKeyOverride = '') {
-  if (pregenSlot.isGenerating || pregenSlot.pending) return
-  pregenSlot.isGenerating = true
-  console.log('🔮 [LoverService] 开始后台预生成...')
-  getLoverMemoryContext()
-    .then((memory) => _callGrokCore('', context, memory, apiKeyOverride))
-    .then((result) => {
-      pregenSlot.pending = result
-      console.log('✅ [LoverService] 预生成完成，消息已就绪')
-    })
-    .catch((err) => {
-      console.warn('⚠️ [LoverService] 预生成失败:', err.message)
-    })
-    .finally(() => {
-      pregenSlot.isGenerating = false
-    })
-}
-
-/**
  * 生成虚拟助手消息
  *
  * 参数：
  *   - userText: 用户输入
  *   - forceRefresh: 是否忽略缓存
- *   - context: 上下文信息 { mood, scene, character }
+ *   - context: 上下文信息
  *
- * 返回：
- *   { text, mood, provider, fallback, timestamp }
+ * 返回：{ text, mood, provider, fallback, timestamp }
  */
 export async function generateMessage(userText, forceRefresh = false, context = {}, apiKeyOverride = '') {
   if (typeof userText !== 'string') {
     throw new ValidationError('userText 必须是字符串')
   }
 
-  // 普通请求：先查 TTL 短缓存
+  // 普通请求：先查 TTL 短缓存（2分钟内同一用户不重复调用）
   if (!forceRefresh) {
-    const cached = getCachedLoverMessage(120000) // 2分钟 TTL
+    const cached = getCachedLoverMessage(120000)
     if (cached) {
       console.log('💾 [LoverService] 读取缓存')
       return { ...cached, _cached: true }
     }
   }
 
-  // 强制刷新：优先命中预生成槽（<10ms 返回）
-  if (forceRefresh) {
-    const pregen = consumePregen()
-    if (pregen) {
-      console.log('⚡ [LoverService] 命中预生成槽，直接返回')
-      setCachedLoverMessage(pregen)
-      // 命中后立刻预热下一条
-      setImmediate(() => startPregenBackground(context, apiKeyOverride))
-      return pregen
+  // 清理过期池消息
+  cleanStalePool()
+
+  // 优先从池里取（<1ms）
+  if (messagePool.length > 0) {
+    const msg = messagePool.shift()
+    console.log(`⚡ [LoverService] 命中消息池，直接返回（剩余 ${messagePool.length} 条）`)
+    setCachedLoverMessage(msg)
+
+    // 剩余不足阈值时后台补充
+    if (messagePool.length <= REFILL_THRESHOLD && !isRefilling) {
+      setImmediate(() => refillPool(apiKeyOverride))
     }
+    return msg
   }
 
-  // 预生成槽未命中，走正常 Grok 调用
+  // 池耗尽，降级为实时单条调用
+  console.warn('⚠️ [LoverService] 消息池已空，降级为实时调用')
   try {
     const memory = await getLoverMemoryContext()
     const result = await _callGrokCore(userText, context, memory, apiKeyOverride)
     setCachedLoverMessage(result)
-    // 完成后后台预热下一条
-    setImmediate(() => startPregenBackground(context, apiKeyOverride))
+    // 实时调用完成后立即触发补池
+    setImmediate(() => refillPool(apiKeyOverride))
     return result
   } catch (error) {
     console.error('❌ [LoverService] 消息生成失败:', error.message)
@@ -271,10 +361,13 @@ export async function generateMessage(userText, forceRefresh = false, context = 
 export async function clearMemory() {
   try {
     clearLoverCache()
-    pregenSlot.pending = null
-    pregenSlot.isGenerating = false
+    // 清空消息池，删除记忆后旧内容作废
+    messagePool.length = 0
+    isRefilling = false
     await clearLoverMemory()
     console.log('✅ [LoverService] 记忆已清空')
+    // 立即开始重新预热消息池
+    setImmediate(() => refillPool())
     return {
       ok: true,
       message: '记忆已清空，下次重新开始',
