@@ -24,8 +24,18 @@ export function AppProvider({ children }) {
   // TODO: 接入 /api/user/membership 获取真实会员等级
   const [userLevel, setUserLevel] = useState('心动会员')
 
+  // 全局 Toast
+  const [toastMessage, setToastMessage] = useState(null)
+  const showToast  = (msg) => setToastMessage(msg)
+  const clearToast = ()    => setToastMessage(null)
+
   return (
-    <AppContext.Provider value={{ coins, setCoins, diamonds, setDiamonds, userLevel, setUserLevel }}>
+    <AppContext.Provider value={{
+      coins, setCoins,
+      diamonds, setDiamonds,
+      userLevel, setUserLevel,
+      toastMessage, showToast, clearToast,
+    }}>
       {children}
     </AppContext.Provider>
   )

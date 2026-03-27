@@ -14,7 +14,7 @@
  */
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
-import { Home, ShoppingBag, MessageCircle, BarChart2 } from 'lucide-react'
+import { Home, ShoppingBag, MessageCircle, BarChart2, User } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 const NAV_ITEMS = [
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { to: '/shop',      Icon: ShoppingBag,   label: '商城'    },
   { to: '/community', Icon: MessageCircle, label: '社区'    },
   { to: '/health',    Icon: BarChart2,     label: '健康数据' },
+  { to: '/profile',   Icon: User,          label: '我的'    },
 ]
 
 const PHONE_W = 'max-w-[430px]'
