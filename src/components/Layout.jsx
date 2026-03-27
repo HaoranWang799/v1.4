@@ -18,9 +18,9 @@ import { Home, ShoppingBag, MessageCircle, BarChart2, User } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 
 const NAV_ITEMS = [
-  { to: '/home',      Icon: Home,          label: '首页'    },
-  { to: '/shop',      Icon: ShoppingBag,   label: '商城'    },
   { to: '/community', Icon: MessageCircle, label: '社区'    },
+  { to: '/shop',      Icon: ShoppingBag,   label: '商城'    },
+  { to: '/home',      Icon: Home,          label: '首页'    },
   { to: '/health',    Icon: BarChart2,     label: '健康数据' },
   { to: '/profile',   Icon: User,          label: '我的'    },
 ]
