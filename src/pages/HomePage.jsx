@@ -811,10 +811,10 @@ export default function HomePage() {
               <span className="text-2xl flex-shrink-0 select-none">💧</span>
               <div>
                 <p className="text-[13px] font-bold text-white leading-snug">
-                  主人，她昨夜已湿透 888 次，今晚还在渴望你…
+                  你昨天的记录是亚洲第 888 名，实在是 🍌 猛男！
                 </p>
                 <p className="text-[11px] font-medium text-white/75 mt-0.5">
-                  继续深入，榨干她最后一滴克制 →
+                  今天继续冲刺，冲进 Top 500～
                 </p>
               </div>
             </div>

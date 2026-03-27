@@ -91,6 +91,17 @@ export default function PaymentPage() {
               <span className="text-[13px] font-semibold text-white">Google Pay</span>
             </button>
           </div>
+          {/* USDT */}
+          <button
+            onClick={() => showToast('USDT 地址已复制，匿名包养到位 🔒')}
+            className="mt-3 w-full bg-[#0D2A1F] border border-[#26A17B]/30 rounded-2xl py-4 flex items-center justify-center gap-2.5 active:scale-95 transition-transform"
+          >
+            <div className="w-5 h-5 rounded-full bg-[#26A17B] flex items-center justify-center shrink-0">
+              <span className="text-[10px] font-black text-white">₮</span>
+            </div>
+            <span className="text-[13px] font-semibold text-[#26A17B]">USDT 匿名加密支付</span>
+            <span className="text-[10px] text-[#26A17B]/60 ml-auto mr-1">TRC20 · ERC20</span>
+          </button>
         </div>
 
         {/* 分割线 */}
