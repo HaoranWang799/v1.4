@@ -675,15 +675,15 @@ const SCRIPT_DURATION_FILTERS = [
 ]
 
 const SCRIPTS = [
-  { id: 's1',  emoji: '👩‍💼', bgFrom: '#2a0c18', bgTo: '#4a1230',
+  { id: 's1',  emoji: '👩‍💼', bgFrom: '#2a0c18', bgTo: '#4a1230', bgImage: '/images/scripts/s1.jpg',
     title: '深夜加班·女上司的惩罚', persona: 'boss',      intensity: 'deep',  duration: 'm', tab: 'hot',
     rating: 4.9, reviews: '6.3k', badge: '🔥 炸裂', badgeColor: 'bg-[#FF2A6D]/30 text-[#FF7DAF]',
     price: { type: 'diamonds', amount: 80, memberAmount: 64, label: '💎 80' } },
-  { id: 's2',  emoji: '🌸', bgFrom: '#0f1a28', bgTo: '#182040',
+  { id: 's2',  emoji: '🌸', bgFrom: '#0f1a28', bgTo: '#182040', bgImage: '/images/scripts/s2.jpg',
     title: '宿舍深夜·学妹的告白', persona: 'xuemei',     intensity: 'light', duration: 's', tab: 'hot',
     rating: 4.8, reviews: '5.1k', badge: '💕 超甜', badgeColor: 'bg-[#A87CFF]/30 text-[#C9A0FF]',
     price: { type: 'free', label: '免费' } },
-  { id: 's3',  emoji: '🔮', bgFrom: '#1a0a28', bgTo: '#2a1040',
+  { id: 's3',  emoji: '🔮', bgFrom: '#1a0a28', bgTo: '#2a1040', bgImage: '/images/scripts/s3.jpg',
     title: '密室游戏·被绑缚的秘密', persona: 'wildcat',   intensity: 'max',   duration: 'l', tab: 'hot',
     rating: 4.9, reviews: '4.8k', badge: '🔒 限制级', badgeColor: 'bg-black/40 text-[#FF2A6D]',
     price: { type: 'diamonds', amount: 150, memberAmount: 120, label: '💎 150' } },
@@ -715,7 +715,7 @@ const SCRIPTS = [
     title: '面具舞会·双面陷阱', persona: 'teacher',   intensity: 'deep',  duration: 'm', tab: 'vip',
     rating: 4.9, reviews: '2.1k', badge: '🔒 专属', badgeColor: 'bg-[#A87CFF]/30 text-[#C9A0FF]',
     price: { type: 'diamonds', amount: 180, memberAmount: 0, label: '👑 会员专享' } },
-  { id: 's11', emoji: '🌺', bgFrom: '#280a20', bgTo: '#380f30',
+  { id: 's11', emoji: '🌺', bgFrom: '#280a20', bgTo: '#380f30', bgImage: '/images/scripts/s11.jpg',
     title: '花魁·深宫独宠夜', persona: 'shaofu',     intensity: 'deep',  duration: 'm', tab: 'hot',
     rating: 4.8, reviews: '3.5k', badge: '🌸 古风', badgeColor: 'bg-pink-500/25 text-pink-300',
     price: { type: 'coins', amount: 880, memberAmount: 704, label: '💰 880' } },
@@ -730,10 +730,15 @@ function ScriptCard({ item, onBuy }) {
   return (
     <div
       className="relative rounded-2xl overflow-hidden cursor-pointer active:scale-[0.97] transition-transform"
-      style={{ background: `linear-gradient(145deg, ${item.bgFrom}, ${item.bgTo})`, aspectRatio: '3/4' }}
+      style={{
+        background: item.bgImage
+          ? `url(${item.bgImage}) center/cover no-repeat`
+          : `linear-gradient(145deg, ${item.bgFrom}, ${item.bgTo})`,
+        aspectRatio: '3/4'
+      }}
       onClick={() => onBuy(item)}
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+      <div className={`absolute inset-0 bg-gradient-to-t ${item.bgImage ? 'from-black/85 via-black/30 to-black/10' : 'from-black/70 via-transparent to-transparent'}`} />
 
       {/* 角标 */}
       <span className={`absolute top-2 left-2 text-[9px] font-bold rounded-full px-1.5 py-0.5 z-10 ${item.badgeColor}`}>
