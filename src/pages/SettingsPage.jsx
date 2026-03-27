@@ -92,7 +92,7 @@ export default function SettingsPage() {
             <ToggleRow
               icon={Shield} iconColor="text-[#FF7DAF]"
               title="推送内容脱敏"
-              desc="通知栏只显示"新消息"，不暴露任何骚话内容"
+              desc={'通知栏只显示「新消息」，不暴露任何骚话内容'}
               checked={pushFilter} onChange={setPushFilter}
             />
             <ToggleRow
