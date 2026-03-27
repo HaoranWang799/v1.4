@@ -29,6 +29,7 @@ import AIVoicePage       from './pages/AIVoicePage'
 import PlayerPage        from './pages/PlayerPage'
 import ChatPage          from './pages/ChatPage'
 import HelpCenterPage    from './pages/HelpCenterPage'
+import ReferralPage      from './pages/ReferralPage'
 
 /** 手机宽度约束壳 — 用于 Layout 外的全屏子页面 */
 function PageShell({ children }) {
@@ -76,6 +77,7 @@ export default function App() {
         <Route path="/player"         element={<PageShell><PlayerPage /></PageShell>} />
         <Route path="/chat"           element={<PageShell><ChatPage /></PageShell>} />
         <Route path="/help"           element={<PageShell><HelpCenterPage /></PageShell>} />
+        <Route path="/referral"       element={<PageShell><ReferralPage /></PageShell>} />
 
         {/* 兜底 */}
         <Route path="*" element={<Navigate to="/home" replace />} />

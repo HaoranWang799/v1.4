@@ -104,7 +104,7 @@ export default function ProfilePage() {
       </div>
 
       {/* 邀请 Banner */}
-      <div className="px-4 mb-6" onClick={() => showToast('邀请功能即将上线')}>
+      <div className="px-4 mb-6" onClick={() => navigate('/referral')}>
         <div className="bg-gradient-to-r from-[#291515] to-[#1A0B0E] border border-[#FFB03A]/40 rounded-2xl p-4 flex items-center justify-between cursor-pointer active:scale-95 transition-transform shadow-[0_5px_25px_rgba(255,107,0,0.2)] relative overflow-hidden">
           <div className="absolute right-0 top-0 h-full w-2/3 bg-gradient-to-l from-[#FFB03A]/10 to-transparent pointer-events-none" />
           <div className="flex items-center space-x-3 relative z-10">
