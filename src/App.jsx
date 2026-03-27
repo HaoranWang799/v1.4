@@ -30,6 +30,17 @@ import PlayerPage        from './pages/PlayerPage'
 import ChatPage          from './pages/ChatPage'
 import HelpCenterPage    from './pages/HelpCenterPage'
 
+/** 手机宽度约束壳 — 用于 Layout 外的全屏子页面 */
+function PageShell({ children }) {
+  return (
+    <div className="min-h-screen bg-[#050305] flex justify-center">
+      <div className="relative w-full max-w-[430px] min-h-screen overflow-hidden">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 /** 全局 Toast 挂载在 AppProvider 内 */
 function GlobalToast() {
   const { toastMessage, clearToast } = useApp()
@@ -52,19 +63,19 @@ export default function App() {
           <Route path="profile"   element={<ProfilePage />} />
         </Route>
 
-        {/* ── 全屏独立页面（无底部导航） ── */}
-        <Route path="/recharge"       element={<RechargePage />} />
-        <Route path="/devices"        element={<DevicePage />} />
-        <Route path="/hardware-store" element={<HardwareStorePage />} />
-        <Route path="/subscription"   element={<SubscriptionPage />} />
-        <Route path="/settings"       element={<SettingsPage />} />
-        <Route path="/privacy"        element={<PrivacyPage />} />
-        <Route path="/payment"        element={<PaymentPage />} />
-        <Route path="/scripts"        element={<ScriptsPage />} />
-        <Route path="/ai-voice"       element={<AIVoicePage />} />
-        <Route path="/player"         element={<PlayerPage />} />
-        <Route path="/chat"           element={<ChatPage />} />
-        <Route path="/help"           element={<HelpCenterPage />} />
+        {/* ── 全屏独立页面（无底部导航，手机宽度约束） ── */}
+        <Route path="/recharge"       element={<PageShell><RechargePage /></PageShell>} />
+        <Route path="/devices"        element={<PageShell><DevicePage /></PageShell>} />
+        <Route path="/hardware-store" element={<PageShell><HardwareStorePage /></PageShell>} />
+        <Route path="/subscription"   element={<PageShell><SubscriptionPage /></PageShell>} />
+        <Route path="/settings"       element={<PageShell><SettingsPage /></PageShell>} />
+        <Route path="/privacy"        element={<PageShell><PrivacyPage /></PageShell>} />
+        <Route path="/payment"        element={<PageShell><PaymentPage /></PageShell>} />
+        <Route path="/scripts"        element={<PageShell><ScriptsPage /></PageShell>} />
+        <Route path="/ai-voice"       element={<PageShell><AIVoicePage /></PageShell>} />
+        <Route path="/player"         element={<PageShell><PlayerPage /></PageShell>} />
+        <Route path="/chat"           element={<PageShell><ChatPage /></PageShell>} />
+        <Route path="/help"           element={<PageShell><HelpCenterPage /></PageShell>} />
 
         {/* 兜底 */}
         <Route path="*" element={<Navigate to="/home" replace />} />
