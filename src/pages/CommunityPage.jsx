@@ -472,7 +472,7 @@ function AiLoverCard({ aiMemoryDeleted, onDeleteMemory, onResetMemory }) {
               border: `1px solid ${moodStyle.border}`,
               opacity: fadeIn ? 1 : 0,
               transform: fadeIn ? 'translateY(0)' : 'translateY(4px)',
-              transition: 'opacity 0.4s ease, transform 0.4s ease',
+              transition: 'opacity 0.06s ease, transform 0.06s ease',
             }}
           >
             {loading && !text ? (
