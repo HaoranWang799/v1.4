@@ -846,7 +846,23 @@ export default function HomePage() {
               className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
               style={{ background: 'linear-gradient(135deg, #FF2A6D 0%, #FF7DAF 55%, #A87CFF 100%)' }}
             >
-              <Flame size={22} className="flex-shrink-0 text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.8)]" fill="white" />
+              <svg className="flex-shrink-0 w-6 h-6 drop-shadow-[0_0_8px_rgba(255,160,0,0.9)]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="fg1" x1="12" y1="22" x2="12" y2="2" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#FF2A6D"/>
+                    <stop offset="40%" stopColor="#FF7A00"/>
+                    <stop offset="75%" stopColor="#FFBE00"/>
+                    <stop offset="100%" stopColor="#FFF176"/>
+                  </linearGradient>
+                  <linearGradient id="fg2" x1="12" y1="20" x2="12" y2="12" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#FF8C00" stopOpacity="0.9"/>
+                    <stop offset="100%" stopColor="#FFE066" stopOpacity="0.95"/>
+                  </linearGradient>
+                </defs>
+                <path d="M12 2C10 5.5 8 7 8 10.5c0 2.2 1.8 4 4 4s4-1.8 4-4c0-1.2-.5-2.2-1-3 0 0 2 2.5 2 5.5a6 6 0 01-12 0C5 8.5 9 2 12 2z" fill="url(#fg1)"/>
+                <path d="M12 13c0 0-1.5-0.8-1.5-2.5 0 0 .8 2 1.5 2.5z" fill="url(#fg2)"/>
+                <ellipse cx="12" cy="10" rx="1.5" ry="2" fill="#FFF9C4" opacity="0.5"/>
+              </svg>
               <div>
                 <p className="text-[13px] font-bold text-white leading-snug">
                   你昨天的记录是亚洲第 888 名，实在是 🍌 猛男！
@@ -911,10 +927,11 @@ export default function HomePage() {
                       {PROMPT_SUGGESTIONS[suggestionTab].map((s, i) => (
                         <button
                           key={i}
-                          onMouseDown={e => { e.preventDefault(); setCustomPrompt(s); setShowSuggestions(false) }}
+                          onMouseDown={e => { e.preventDefault(); setCustomPrompt(s.text); setShowSuggestions(false) }}
                           className="w-full text-left px-3 py-2 rounded-xl text-xs text-[rgba(245,240,242,0.8)] hover:bg-white/8 active:scale-[0.98] transition-all leading-snug border border-transparent hover:border-white/10"
                         >
-                          {s}
+                          <span className="inline-block mr-2 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-[#FF2A6D]/20 text-[#FF7DAF] border border-[#FF2A6D]/25 align-middle">{s.role}</span>
+                          {s.text}
                         </button>
                       ))}
                     </div>
