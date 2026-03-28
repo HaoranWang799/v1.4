@@ -784,6 +784,63 @@ function FilterPill({ label, active, onClick }) {
   )
 }
 
+function DragScrollRow({ className = '', children }) {
+  const ref = useRef(null)
+  const drag = useRef({ id: null, startX: 0, startLeft: 0, moved: false, axis: null })
+
+  const onPointerDown = e => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return
+    const el = ref.current; if (!el) return
+    drag.current = { id: e.pointerId, startX: e.clientX, startLeft: el.scrollLeft, moved: false, axis: null }
+    el.setPointerCapture(e.pointerId)
+  }
+  const onPointerMove = e => {
+    if (e.pointerType !== 'mouse') return
+    const el = ref.current; if (!el || drag.current.id !== e.pointerId) return
+    const dx = e.clientX - drag.current.startX
+    const dy = e.clientY - drag.current.startY
+    if (!drag.current.axis) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return
+      drag.current.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+    }
+    if (drag.current.axis !== 'x') return
+    if (Math.abs(dx) > 4) drag.current.moved = true
+    el.scrollLeft = drag.current.startLeft - dx
+    e.preventDefault()
+  }
+  const onPointerUp = e => {
+    if (e.pointerType !== 'mouse') return
+    const el = ref.current
+    el?.releasePointerCapture(drag.current.id)
+    setTimeout(() => { drag.current.moved = false }, 0)
+    drag.current.id = null; drag.current.axis = null
+  }
+  const onClickCapture = e => {
+    if (drag.current.moved) { e.preventDefault(); e.stopPropagation() }
+  }
+  const onWheel = e => {
+    const el = ref.current; if (!el) return
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+    el.scrollLeft += e.deltaY; e.preventDefault()
+  }
+
+  return (
+    <div
+      ref={ref}
+      className={`flex gap-2 overflow-x-auto scrollbar-hide pb-1 select-none cursor-grab active:cursor-grabbing ${className}`}
+      style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehaviorX: 'contain' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onClickCapture={onClickCapture}
+      onWheel={onWheel}
+    >
+      {children}
+    </div>
+  )
+}
+
 function ScriptLibrarySection({ onBuy }) {
   const [activeTab,       setActiveTab]       = useState('hot')
   const [personaFilter,   setPersonaFilter]   = useState('all')
@@ -843,7 +900,7 @@ function ScriptLibrarySection({ onBuy }) {
 
       {/* 顶部 Tabs */}
       <div className="relative mb-5">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+        <DragScrollRow>
           {SCRIPT_TABS.map(tab => (
             <button
               key={tab.id}
@@ -857,7 +914,7 @@ function ScriptLibrarySection({ onBuy }) {
               {tab.label}
             </button>
           ))}
-        </div>
+        </DragScrollRow>
         <div className="absolute right-0 top-0 bottom-1 w-10 bg-gradient-to-l from-[#0D0612] to-transparent pointer-events-none" />
       </div>
 
@@ -866,27 +923,27 @@ function ScriptLibrarySection({ onBuy }) {
       <div className="space-y-3 mb-5">
         <div>
           <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">她的人设</p>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          <DragScrollRow>
             {SCRIPT_PERSONA_FILTERS.map(f => (
               <FilterPill key={f.id} label={f.label} active={personaFilter === f.id} onClick={() => setPersonaFilter(f.id)} />
             ))}
-          </div>
+          </DragScrollRow>
         </div>
         <div>
           <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">刺激烈度</p>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          <DragScrollRow>
             {SCRIPT_INTENSITY_FILTERS.map(f => (
               <FilterPill key={f.id} label={f.label} active={intensityFilter === f.id} onClick={() => setIntensityFilter(f.id)} />
             ))}
-          </div>
+          </DragScrollRow>
         </div>
         <div>
           <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">沉沦时长</p>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          <DragScrollRow>
             {SCRIPT_DURATION_FILTERS.map(f => (
               <FilterPill key={f.id} label={f.label} active={durationFilter === f.id} onClick={() => setDurationFilter(f.id)} />
             ))}
-          </div>
+          </DragScrollRow>
         </div>
       </div>
       )}
