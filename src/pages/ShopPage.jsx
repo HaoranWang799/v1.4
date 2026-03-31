@@ -634,37 +634,37 @@ function FreePackCard({ item, onClick }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  禁忌剧本库 数据 & 组件
+//  沉浸内容库 数据 & 组件
 // ═══════════════════════════════════════════════════════════
 
 const SCRIPT_TABS = [
-  { id: 'hot',     label: '💘 主人精选' },
-  { id: 'popular', label: '💦 最多人玩' },
-  { id: 'new',     label: '🌶 刚出炉'   },
-  { id: 'vip',     label: '🔒 专属禁地' },
+  { id: 'hot',     label: '💘 为你精选' },
+  { id: 'popular', label: '💦 热门推荐' },
+  { id: 'new',     label: '🌶 官方上新' },
+  { id: 'vip',     label: '🔒 会员专享' },
 ]
 
 const SCRIPT_PERSONA_FILTERS = [
-  { id: 'all',       label: '全部角色' },
-  { id: 'xuemei',    label: '学妹'     },
-  { id: 'classmate', label: '女同学'   },
-  { id: 'banhua',    label: '班花'     },
-  { id: 'boss',      label: '女上司'   },
+  { id: 'all',       label: '全部风格' },
+  { id: 'xuemei',    label: '清新陪伴' },
+  { id: 'classmate', label: '校园氛围' },
+  { id: 'banhua',    label: '人气焦点' },
+  { id: 'boss',      label: '知性上司' },
   { id: 'secretary', label: '秘书'     },
   { id: 'nurse',     label: '护士'     },
-  { id: 'shaofu',    label: '少妇'     },
+  { id: 'shaofu',    label: '成熟知性' },
   { id: 'neighbor',  label: '邻家妹妹' },
-  { id: 'ex',        label: '前女友'   },
+  { id: 'ex',        label: '熟悉旧识' },
   { id: 'teacher',   label: '老师'     },
-  { id: 'goddess',   label: '女神'     },
+  { id: 'goddess',   label: '高冷魅力' },
   { id: 'wildcat',   label: '小野猫'   },
 ]
 
 const SCRIPT_INTENSITY_FILTERS = [
   { id: 'all',    label: '全部强度' },
-  { id: 'light',  label: '轻柔前戏' },
-  { id: 'deep',   label: '深度开发' },
-  { id: 'max',    label: '极限榨干' },
+  { id: 'light',  label: '轻度体验' },
+  { id: 'deep',   label: '中度体验' },
+  { id: 'max',    label: '高强体验' },
 ]
 
 const SCRIPT_DURATION_FILTERS = [
@@ -863,9 +863,9 @@ function ScriptLibrarySection({ onBuy }) {
       {/* 标题 */}
       <div className="flex items-center gap-2 mb-4">
         <span className="text-lg">🔞</span>
-        <h2 className="text-[15px] font-black text-[#F9EDF5] tracking-wide">禁忌剧本库</h2>
+        <h2 className="text-[15px] font-black text-[#F9EDF5] tracking-wide">沉浸内容库</h2>
         <span className="text-[9px] rounded-full px-2 py-0.5 bg-[#FF2A6D]/20 text-[#FF7DAF] border border-[#FF2A6D]/30 ml-auto">
-          主人精选
+          精选推荐
         </span>
       </div>
 
@@ -877,7 +877,7 @@ function ScriptLibrarySection({ onBuy }) {
         <input
           value={searchVal}
           onChange={e => setSearchVal(e.target.value)}
-          placeholder="找找你想要的玩法… 💋"
+          placeholder="搜索你想体验的内容…"
           className="w-full bg-[#1A0E1E] border border-white/10 rounded-2xl pl-10 pr-4 py-3 text-sm text-[#F9EDF5] placeholder-[#9B859D]/60 focus:outline-none focus:border-[#FF2A6D]/40"
         />
         <button
@@ -922,7 +922,7 @@ function ScriptLibrarySection({ onBuy }) {
       {filterOpen && (
       <div className="space-y-3 mb-5">
         <div>
-          <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">她的人设</p>
+          <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">角色风格</p>
           <DragScrollRow>
             {SCRIPT_PERSONA_FILTERS.map(f => (
               <FilterPill key={f.id} label={f.label} active={personaFilter === f.id} onClick={() => setPersonaFilter(f.id)} />
@@ -930,7 +930,7 @@ function ScriptLibrarySection({ onBuy }) {
           </DragScrollRow>
         </div>
         <div>
-          <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">刺激烈度</p>
+          <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">互动强度</p>
           <DragScrollRow>
             {SCRIPT_INTENSITY_FILTERS.map(f => (
               <FilterPill key={f.id} label={f.label} active={intensityFilter === f.id} onClick={() => setIntensityFilter(f.id)} />
@@ -938,7 +938,7 @@ function ScriptLibrarySection({ onBuy }) {
           </DragScrollRow>
         </div>
         <div>
-          <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">沉沦时长</p>
+          <p className="text-[10px] text-[#9B859D] mb-2 tracking-widest">体验时长</p>
           <DragScrollRow>
             {SCRIPT_DURATION_FILTERS.map(f => (
               <FilterPill key={f.id} label={f.label} active={durationFilter === f.id} onClick={() => setDurationFilter(f.id)} />
