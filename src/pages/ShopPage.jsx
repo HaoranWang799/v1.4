@@ -815,11 +815,14 @@ function DragScrollRow({ className = '', children }) {
     if (e.pointerType !== 'mouse') return
     const el = ref.current
     el?.releasePointerCapture(drag.current.id)
-    setTimeout(() => { drag.current.moved = false }, 0)
+    drag.current.moved = false
     drag.current.id = null; drag.current.axis = null
   }
   const onClickCapture = e => {
-    if (drag.current.moved && e.pointerType !== 'touch') { e.preventDefault(); e.stopPropagation() }
+    if (drag.current.id !== null && drag.current.moved && e.pointerType !== 'touch') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
   }
   const onWheel = e => {
     const el = ref.current; if (!el) return
