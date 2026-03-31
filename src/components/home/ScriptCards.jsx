@@ -115,7 +115,7 @@ export function GeneratedScriptCard({ script, onClick }) {
           className="absolute top-2.5 right-2.5 text-[9px] font-bold rounded-full px-1.5 py-0.5 text-white whitespace-nowrap"
           style={{ background: 'linear-gradient(135deg, #FF9ACB, #B380FF)' }}
         >
-          ✨ 为你定制
+          VIP专属
         </span>
 
         <p className="text-[11px] font-semibold text-white mb-1 leading-snug pr-14">

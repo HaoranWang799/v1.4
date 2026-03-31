@@ -929,7 +929,7 @@ export default function HomePage() {
                 >
                   {isGenerating
                     ? <span className="flex items-center gap-1">⏳ 生成中…</span>
-                    : <><Sparkles size={13} />✨ 生成</>
+                    : <><Sparkles size={13} />AI智能生成</>
                   }
                 </button>
               </div>
