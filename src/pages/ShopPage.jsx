@@ -789,7 +789,10 @@ function DragScrollRow({ className = '', children }) {
   const drag = useRef({ id: null, startX: 0, startLeft: 0, moved: false, axis: null })
 
   const onPointerDown = e => {
-    if (e.pointerType !== 'mouse' || e.button !== 0) return
+    if (e.pointerType !== 'mouse' || e.button !== 0) {
+      drag.current.moved = false
+      return
+    }
     const el = ref.current; if (!el) return
     drag.current = { id: e.pointerId, startX: e.clientX, startY: e.clientY, startLeft: el.scrollLeft, moved: false, axis: null }
     el.setPointerCapture(e.pointerId)
@@ -816,7 +819,7 @@ function DragScrollRow({ className = '', children }) {
     drag.current.id = null; drag.current.axis = null
   }
   const onClickCapture = e => {
-    if (drag.current.moved) { e.preventDefault(); e.stopPropagation() }
+    if (drag.current.moved && e.pointerType !== 'touch') { e.preventDefault(); e.stopPropagation() }
   }
   const onWheel = e => {
     const el = ref.current; if (!el) return
