@@ -118,7 +118,7 @@ export function GeneratedScriptCard({ script, onClick }) {
             : { background: 'linear-gradient(135deg, #FF9ACB, #B380FF)' }
           }
         >
-          {script.isFree ? '免费版' : 'VIP专属'}
+          {script.isFree ? '免费版' : 'VIP'}
         </span>
 
         <p className="text-[11px] font-semibold text-white mb-1 leading-snug pr-14">
@@ -140,7 +140,7 @@ export function GeneratedScriptCard({ script, onClick }) {
             fontSize: script.isFree ? '9px' : '9px',
           }}
         >
-          {script.isFree ? '✨ 体验定制（30秒）' : '✨ 专属体验定制（10分钟）'}
+          {script.isFree ? '✨ 体验定制（30秒）' : '✨ AI定制（10分钟）'}
         </span>
       </div>
     </button>
