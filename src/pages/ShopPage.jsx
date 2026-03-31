@@ -862,7 +862,6 @@ function ScriptLibrarySection({ onBuy }) {
     <section className="page-section page-delay-4">
       {/* 标题 */}
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">🔞</span>
         <h2 className="text-[15px] font-black text-[#F9EDF5] tracking-wide">沉浸内容库</h2>
         <span className="text-[9px] rounded-full px-2 py-0.5 bg-[#FF2A6D]/20 text-[#FF7DAF] border border-[#FF2A6D]/30 ml-auto">
           精选推荐

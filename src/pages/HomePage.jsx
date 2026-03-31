@@ -892,11 +892,6 @@ export default function HomePage() {
 
             {/* ── 硬件设备状态 ── */}
             <div className="rounded-2xl px-4 py-3 flex items-center gap-3 bg-[#1E1324]/80 border border-[#A87CFF]/20">
-              <div className="w-8 h-8 rounded-xl bg-[#A87CFF]/15 flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A87CFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
-                </svg>
-              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[12px] font-semibold text-[#F9EDF5] leading-snug">
                   设备已连接：<span className="text-[#A87CFF]">X1 Pro</span>　电量：<span className="text-[#FF7DAF]">87%</span>　模式：<span className="text-[#A87CFF]">沉浸同步</span>
