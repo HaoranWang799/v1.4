@@ -118,7 +118,7 @@ export function GeneratedScriptCard({ script, onClick }) {
             : { background: 'linear-gradient(135deg, #FF9ACB, #B380FF)' }
           }
         >
-          {script.isFree ? '免费版' : 'VIP'}
+          {script.isFree ? '免费版' : 'VIP专属'}
         </span>
 
         <p className="text-[11px] font-semibold text-white mb-1 leading-snug pr-14">
